@@ -41,7 +41,7 @@ Bottom tab bar with five tabs: **Today**, **Week**, **Recipes**, **Shopping**, *
 
 ### Settings (`#/settings`)
 - Start date (date input; defaulted to the first-launch date and saved).
-- Target weight + unit (lb / kg). Valid range 80–600 lb (36–272 kg); invalid input shows an inline error and is not saved.
+- Target weight + unit (lb / kg). Valid range 80–600 lb (36–272 kg). A valid value saves as you type; an invalid one is not saved and shows an inline error when the field loses focus. Switching units converts the saved weight (rounded to 0.1).
 - Shows the derived protein target range.
 - Notice if storage is unavailable ("Progress won't be saved in this browser").
 
@@ -172,7 +172,13 @@ Expected planned totals (sanity check, ±5%): Pattern A ≈ 1,025 kcal / 90 g pr
 
 ### 4.4 Shopping list
 
-Brief section 6 as categories (Proteins, Volume Bases, Noodle Sub, Pantry & Condiments, Spices & Thickening Agents), each item with a stable id. Top-up foods are listed in an extra "Optional Top-ups" category (seitan, tempeh, edamame).
+Brief section 6 as categories (Proteins, Volume Bases, Noodle Sub, Pantry & Condiments, Spices & Thickening Agents), each item with a stable id and the food ids it covers. The brief's list omits foods the recipes use, so three categories are added:
+
+- **Also Used in the Plan:** frozen berries, almond milk, mixed greens, olive oil spray, fresh garlic, ground ginger, dried dill.
+- **Extra Sauce Ingredients:** sriracha, lemons, white vinegar, dried oregano & parsley.
+- **Optional Top-ups:** seitan, tempeh, edamame.
+
+A data test checks that every recipe and top-up food is covered, except pantry basics (water, ice, salt & pepper).
 
 ## 5. Nutrition (`src/lib/nutrition.ts`)
 
@@ -218,8 +224,13 @@ interface Stored {
 - `load(storage, today)`: missing, unparseable, wrong version or wrong shape → defaults (`startDate = today`, `targetWeight = null`, `unit = 'lb'`, empty maps). Invalid fields are replaced field by field, so one bad field doesn't wipe the rest.
 - `save(storage, state)`: wrapped in try/catch; returns `false` on failure.
 - Storage access itself (e.g. `window.localStorage` throwing in private mode) is caught; the app runs in memory and exposes `persistent: false`.
-- `useAppState()` hook: holds state in Preact state, writes through `save` on every change, and exposes actions: `toggleEaten(date, slot)`, `toggleShopping(id)`, `clearShopping()`, `setSettings(partial)`.
-- "Today" comes from an injectable clock (`today()` in `src/lib/clock.ts`) so tests can fix the date.
+- `AppStateProvider` (`src/state.tsx`) is mounted once in `App` and shares state through context; views read it with `useAppState()`.
+  - It saves on every change, including the first render, so a first launch persists its default start date.
+  - `persistent` turns false whenever a save fails.
+  - Actions: `toggleEaten(date, slot)`, `toggleShopping(id)`, `clearShopping()`, `setSettings(partial)`.
+- "Today" comes from `today()` in `src/lib/clock.ts` (local `new Date()`).
+  - It is re-read on `visibilitychange` and `focus`, so the day rolls over.
+  - Tests pin it with `vi.useFakeTimers({ toFake: ['Date'] })` + `vi.setSystemTime`.
 
 ## 8. Project structure
 
@@ -231,14 +242,15 @@ tsconfig.json             strict, jsx react-jsx, jsxImportSource preact
 .github/workflows/deploy.yml
 src/main.tsx              render <App/>
 src/app.tsx               shell: header, route outlet, footer, tab bar
-src/router.ts             useHashRoute(): parses location.hash → { name, params }
-src/state.ts              useAppState()
+src/router.ts             parseHash / hrefFor / useHashRoute() (unknown hash → #/today)
+src/state.tsx             AppStateProvider + useAppState()
 src/styles.css            mobile-first CSS, custom properties, light/dark
-src/lib/{clock,program,nutrition,topups,storage}.ts (+ .test.ts)
+src/lib/{clock,format,program,nutrition,topups,storage}.ts (+ .test.ts)
 src/data/{types,foods,recipes,plan,shopping,addons}.ts (+ data.test.ts)
 src/views/{Today,Week,Recipes,RecipeDetail,Shopping,Settings}.tsx
 src/components/{TabBar,MealCard,TotalsBar,TopUps}.tsx
-src/app.test.tsx          UI smoke tests
+src/test/setup.ts         testing-library cleanup; resets localStorage and URL
+src/app.test.tsx          UI smoke tests (+ state.test.tsx, router.test.ts)
 ```
 
 ## 9. Styling & accessibility
@@ -246,7 +258,7 @@ src/app.test.tsx          UI smoke tests
 - Plain CSS with custom properties; `prefers-color-scheme` dark variant; max content width ~40rem, centered.
 - Fixed bottom tab bar with safe-area inset padding; tap targets ≥ 44 px.
 - Tab links use `aria-current="page"`; eaten toggles use `aria-pressed`; checkboxes are real `<input type="checkbox">` with labels.
-- Emoji SVG favicon 🥣; title "Mixing Bowl".
+- Emoji favicon 🥣 as an inline SVG data URI (no base-path handling needed); title "Mixing Bowl".
 
 ## 10. Testing
 
@@ -262,11 +274,15 @@ Vitest with jsdom. `npm test` = `vitest run`.
 ## 11. Build & deploy
 
 - Scripts: `dev` (vite), `build` (`tsc --noEmit && vite build`), `preview` (vite preview), `test` (vitest run).
-- TypeScript: use the latest (7.x). If the native compiler is incompatible with the toolchain, fall back to the latest 5.x and note it in the README.
+- TypeScript 7.x (native compiler) with `moduleResolution: bundler` and `types: ["vite/client"]`; `vite.config.ts` stays outside `include`. If 7.x ever breaks the toolchain, fall back to 6.0.x, the last JS-based compiler.
 - Workflow `.github/workflows/deploy.yml`, on push to `main` and `workflow_dispatch`:
   - job `build`: `actions/checkout@v7`, `actions/setup-node@v7` (node-version-file `.nvmrc`, npm cache), `npm ci`, `npm test`, `npm run build`, `actions/configure-pages@v6`, `actions/upload-pages-artifact@v5` (path `dist`).
-  - job `deploy` (needs build; permissions `pages: write`, `id-token: write`; environment `github-pages`): `actions/deploy-pages@v5`.
-- Repo setup: `gh repo create danielgollas/mixingbowl --public --source . --push`; enable Pages with `gh api -X POST repos/danielgollas/mixingbowl/pages -f build_type=workflow`.
+  - job `deploy` (needs build; environment `github-pages`): `actions/deploy-pages@v5`.
+  - Workflow-level permissions: `contents: read`, `pages: write`, `id-token: write`.
+- Repo setup, in this order so the first run doesn't fail:
+  1. `gh repo create danielgollas/mixingbowl --public --source .` without pushing.
+  2. Enable Pages with `gh api -X POST repos/danielgollas/mixingbowl/pages -f build_type=workflow`.
+  3. `git push -u origin main`.
 - Live URL: `https://danielgollas.github.io/mixingbowl/`.
 
 ## 12. Verification before "done"
