@@ -1,5 +1,5 @@
 import { createContext, type ComponentChildren } from 'preact';
-import { useContext, useEffect, useMemo, useState } from 'preact/hooks';
+import { useContext, useEffect, useLayoutEffect, useMemo, useState } from 'preact/hooks';
 import { SLOTS, type Slot } from './data/types';
 import { today as currentDate } from './lib/clock';
 import { browserStorage, load, save, type AppData, type Settings, type StorageLike } from './lib/storage';
@@ -30,8 +30,9 @@ export function AppStateProvider({ children, storage }: ProviderProps) {
   const [data, setData] = useState(() => load(store, currentDate()));
   const [persistent, setPersistent] = useState(store !== null);
 
-  // Runs on the first render too, so a first launch saves its default start date.
-  useEffect(() => {
+  // Layout effects run right after the render instead of after the next frame, so a change is saved even if
+  // the tab closes immediately. Runs on the first render too, so a first launch saves its default start date.
+  useLayoutEffect(() => {
     setPersistent(save(store, data));
   }, [store, data]);
 

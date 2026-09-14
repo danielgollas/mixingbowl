@@ -63,6 +63,15 @@ describe('AppStateProvider', () => {
     expect(stored().settings).toEqual({ startDate: '2026-09-14', targetWeight: 160, unit: 'lb' });
   });
 
+  it('saves a change before the next frame, so closing the tab right away keeps it', async () => {
+    render(<AppStateProvider><Probe /></AppStateProvider>);
+    // A native click outside act(): Preact renders in a microtask, but effects wait for the next frame.
+    (screen.getByRole('button', { name: 'weight' }) as HTMLButtonElement).click();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(stored().settings.targetWeight).toBe(160);
+  });
+
   it('keeps working in memory without storage', () => {
     render(<AppStateProvider storage={null}><Probe /></AppStateProvider>);
     expect(screen.getByTestId('persistent').textContent).toBe('false');
