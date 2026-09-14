@@ -23,17 +23,19 @@ export function proteinTarget(weight: number | null, unit: WeightUnit): Range | 
 
 export const WEIGHT_RANGE: Record<WeightUnit, Range> = {
   lb: { min: 80, max: 600 },
-  kg: { min: 36, max: 272 },
+  // The lb range in kg, rounded inward to one decimal so a weight valid in one unit stays valid in the other.
+  kg: { min: 36.3, max: 272.1 },
 };
 
 export const isValidWeight = (weight: number, unit: WeightUnit): boolean =>
   Number.isFinite(weight) && weight >= WEIGHT_RANGE[unit].min && weight <= WEIGHT_RANGE[unit].max;
 
-/** Converts a weight between units, rounded to one decimal. */
+/** Converts a weight between units, rounded to one decimal and kept within the new unit's range. */
 export function convertWeight(weight: number, from: WeightUnit, to: WeightUnit): number {
   if (from === to) return weight;
   const converted = from === 'lb' ? weight / LB_PER_KG : weight * LB_PER_KG;
-  return Math.round(converted * 10) / 10;
+  const { min, max } = WEIGHT_RANGE[to];
+  return Math.min(max, Math.max(min, Math.round(converted * 10) / 10));
 }
 
 export interface TopUpItem extends Nutrition {

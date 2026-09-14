@@ -9,16 +9,28 @@ describe('weights', () => {
     expect(convertWeight(160, 'lb', 'lb')).toBe(160);
   });
 
-  it('accepts 80–600 lb or 36–272 kg', () => {
+  it('accepts 80–600 lb or the same range in kg (36.3–272.1)', () => {
     expect(isValidWeight(80, 'lb')).toBe(true);
     expect(isValidWeight(79, 'lb')).toBe(false);
     expect(isValidWeight(600, 'lb')).toBe(true);
     expect(isValidWeight(601, 'lb')).toBe(false);
-    expect(isValidWeight(36, 'kg')).toBe(true);
-    expect(isValidWeight(35.9, 'kg')).toBe(false);
-    expect(isValidWeight(272, 'kg')).toBe(true);
-    expect(isValidWeight(273, 'kg')).toBe(false);
+    expect(isValidWeight(36.3, 'kg')).toBe(true);
+    expect(isValidWeight(36.2, 'kg')).toBe(false);
+    expect(isValidWeight(272.1, 'kg')).toBe(true);
+    expect(isValidWeight(272.2, 'kg')).toBe(false);
     expect(isValidWeight(Number.NaN, 'lb')).toBe(false);
+  });
+
+  it('keeps converted weights at the edges of the range valid in the new unit', () => {
+    for (const [weight, from, to] of [
+      [80, 'lb', 'kg'],
+      [600, 'lb', 'kg'],
+      [36.3, 'kg', 'lb'],
+      [272.1, 'kg', 'lb'],
+    ] as const) {
+      const converted = convertWeight(weight, from, to);
+      expect(isValidWeight(converted, to), `${weight} ${from} → ${converted} ${to}`).toBe(true);
+    }
   });
 });
 

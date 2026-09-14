@@ -41,7 +41,7 @@ Bottom tab bar with five tabs: **Today**, **Week**, **Recipes**, **Shopping**, *
 
 ### Settings (`#/settings`)
 - Start date (date input; defaulted to the first-launch date and saved).
-- Target weight + unit (lb / kg). Valid range 80–600 lb (36–272 kg). A valid value saves as you type; an invalid one is not saved and shows an inline error when the field loses focus. Switching units converts the saved weight (rounded to 0.1).
+- Target weight + unit (lb / kg). Valid range 80–600 lb (36.3–272.1 kg: the same range, rounded inward). Text the browser can't parse is not treated as clearing the field. A cleared or half-typed start date is ignored until it's valid. A valid value saves as you type; an invalid one is not saved and shows an inline error when the field loses focus. Switching units converts the saved weight (rounded to 0.1).
 - Shows the derived protein target range.
 - Notice if storage is unavailable ("Progress won't be saved in this browser").
 
@@ -51,6 +51,7 @@ The brief's disclaimer plus "Nutrition figures are estimates."
 ## 3. Program day logic (`src/lib/program.ts`)
 
 - Dates are local calendar dates as `YYYY-MM-DD` strings.
+- "Today" starts at 4am local time (`DAY_START_HOUR`), so late-night eating (the brief's peak cravings) counts toward the evening before.
 - `daysBetween(a, b)`: difference computed from `Date.UTC(y, m-1, d)` of each date part, so DST transitions cannot shift the count.
 - `programDay = daysBetween(startDate, today)` (0-based). Negative means the program hasn't started.
 - `cycleDay = (programDay mod 7) + 1` (1..7); `week = floor(programDay / 7) + 1`.
@@ -227,8 +228,9 @@ interface Stored {
 - `AppStateProvider` (`src/state.tsx`) is mounted once in `App` and shares state through context; views read it with `useAppState()`.
   - It saves on every change, including the first render, so a first launch persists its default start date.
   - `persistent` turns false whenever a save fails.
+  - It reloads from storage on `storage` events (another tab saved) and when the page regains visibility or focus, but only while its own last save succeeded, so it never discards unsaved changes.
   - Actions: `toggleEaten(date, slot)`, `toggleShopping(id)`, `clearShopping()`, `setSettings(partial)`.
-- "Today" comes from `today()` in `src/lib/clock.ts` (local `new Date()`).
+- "Today" comes from `today()` in `src/lib/clock.ts` (local `new Date()`, with the day starting at 4am).
   - It is re-read on `visibilitychange` and `focus`, so the day rolls over.
   - Tests pin it with `vi.useFakeTimers({ toFake: ['Date'] })` + `vi.setSystemTime`.
 
@@ -258,6 +260,8 @@ src/app.test.tsx          UI smoke tests (+ state.test.tsx, router.test.ts)
 - Plain CSS with custom properties; `prefers-color-scheme` dark variant; max content width ~40rem, centered.
 - Fixed bottom tab bar with safe-area inset padding; tap targets ≥ 44 px.
 - Tab links use `aria-current="page"`; eaten toggles use `aria-pressed`; checkboxes are real `<input type="checkbox">` with labels.
+- After navigating, focus moves to the new page's `<h1>` (not on first load).
+- Unticked eaten toggles use the muted text colour to meet 3:1 contrast for controls.
 - Emoji favicon 🥣 as an inline SVG data URI (no base-path handling needed); title "Mixing Bowl".
 
 ## 10. Testing

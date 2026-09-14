@@ -1,8 +1,16 @@
 import { createContext, type ComponentChildren } from 'preact';
-import { useContext, useEffect, useLayoutEffect, useMemo, useState } from 'preact/hooks';
+import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { SLOTS, type Slot } from './data/types';
 import { today as currentDate } from './lib/clock';
-import { browserStorage, load, save, type AppData, type Settings, type StorageLike } from './lib/storage';
+import {
+  STORAGE_KEY,
+  browserStorage,
+  load,
+  save,
+  type AppData,
+  type Settings,
+  type StorageLike,
+} from './lib/storage';
 
 export interface AppState {
   data: AppData;
@@ -29,22 +37,37 @@ export function AppStateProvider({ children, storage }: ProviderProps) {
   const [today, setToday] = useState(() => currentDate());
   const [data, setData] = useState(() => load(store, currentDate()));
   const [persistent, setPersistent] = useState(store !== null);
+  const lastSaveOk = useRef(false);
 
   // Layout effects run right after the render instead of after the next frame, so a change is saved even if
   // the tab closes immediately. Runs on the first render too, so a first launch saves its default start date.
   useLayoutEffect(() => {
-    setPersistent(save(store, data));
+    lastSaveOk.current = save(store, data);
+    setPersistent(lastSaveOk.current);
   }, [store, data]);
 
   useEffect(() => {
-    const refresh = () => setToday(currentDate());
-    document.addEventListener('visibilitychange', refresh);
-    window.addEventListener('focus', refresh);
-    return () => {
-      document.removeEventListener('visibilitychange', refresh);
-      window.removeEventListener('focus', refresh);
+    // Another tab may have saved since this one last read, and saving this tab's stale copy would undo that.
+    // Only reload while this tab's own saves succeed; otherwise storage is older than what's on screen.
+    const reload = () => {
+      if (lastSaveOk.current) setData(load(store, currentDate()));
     };
-  }, []);
+    const onReturn = () => {
+      setToday(currentDate());
+      reload();
+    };
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === null || event.key === STORAGE_KEY) reload();
+    };
+    document.addEventListener('visibilitychange', onReturn);
+    window.addEventListener('focus', onReturn);
+    window.addEventListener('storage', onStorage);
+    return () => {
+      document.removeEventListener('visibilitychange', onReturn);
+      window.removeEventListener('focus', onReturn);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, [store]);
 
   const value = useMemo<AppState>(
     () => ({

@@ -11,7 +11,7 @@ export const addNutrition = (a: Nutrition, b: Nutrition, times = 1): Nutrition =
 });
 
 export function foodNutrition(foodId: FoodId, grams: number, foods: Record<FoodId, Food> = FOODS): Nutrition {
-  const food = foods[foodId];
+  const food = Object.hasOwn(foods, foodId) ? foods[foodId] : undefined;
   if (!food) throw new Error(`Unknown food: ${foodId}`);
   return { kcal: (food.kcalPer100g * grams) / 100, protein: (food.proteinPer100g * grams) / 100 };
 }
@@ -21,7 +21,7 @@ export function recipeNutrition(
   recipes: Record<RecipeId, Recipe> = RECIPES,
   foods: Record<FoodId, Food> = FOODS,
 ): Nutrition {
-  const recipe = recipes[recipeId];
+  const recipe = Object.hasOwn(recipes, recipeId) ? recipes[recipeId] : undefined;
   if (!recipe) throw new Error(`Unknown recipe: ${recipeId}`);
   let total = ZERO;
   for (const ingredient of recipe.ingredients) {

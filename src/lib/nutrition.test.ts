@@ -55,6 +55,11 @@ describe('recipeNutrition', () => {
   it('throws on an unknown recipe', () => {
     expect(() => recipeNutrition('nope')).toThrow(/nope/);
   });
+
+  it('does not treat inherited object keys as ids', () => {
+    expect(() => recipeNutrition('constructor')).toThrow(/Unknown recipe: constructor/);
+    expect(() => foodNutrition('toString', 10)).toThrow(/Unknown food: toString/);
+  });
 });
 
 describe('plan totals', () => {

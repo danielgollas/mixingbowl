@@ -1,4 +1,4 @@
-import { RECIPES } from '../data/recipes';
+import { RECIPES, getRecipe } from '../data/recipes';
 import type { Method, RecipeKind } from '../data/types';
 import { formatNumber } from '../lib/format';
 import { recipeNutrition } from '../lib/nutrition';
@@ -19,7 +19,7 @@ const KIND_LABELS: Record<RecipeKind, string> = {
 };
 
 export function RecipeDetail({ id }: { id: string }) {
-  const recipe = RECIPES[id];
+  const recipe = getRecipe(id);
 
   if (!recipe) {
     return (

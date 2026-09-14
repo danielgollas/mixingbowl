@@ -95,6 +95,37 @@ describe('AppStateProvider', () => {
     expect(screen.getByTestId('persistent').textContent).toBe('false');
   });
 
+  it('reloads saved data when another tab changes it, so saves keep both edits', () => {
+    render(<AppStateProvider><Probe /></AppStateProvider>);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...stored(), shopping: { seitan: true } }));
+    fireEvent(window, new StorageEvent('storage', { key: STORAGE_KEY }));
+    expect(shown().shopping).toEqual({ seitan: true });
+    click('celery');
+    expect(stored().shopping).toEqual({ seitan: true, celery: true });
+  });
+
+  it('reloads saved data when the page becomes visible again', () => {
+    render(<AppStateProvider><Probe /></AppStateProvider>);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...stored(), eaten: { '2026-09-14': ['snack'] } }));
+    fireEvent(document, new Event('visibilitychange'));
+    expect(shown().eaten).toEqual({ '2026-09-14': ['snack'] });
+  });
+
+  it('does not reload over changes it could not save', () => {
+    let failing = false;
+    const flaky: StorageLike = {
+      getItem: () => null,
+      setItem: () => {
+        if (failing) throw new Error('QuotaExceededError');
+      },
+    };
+    render(<AppStateProvider storage={flaky}><Probe /></AppStateProvider>);
+    failing = true;
+    click('weight');
+    fireEvent(document, new Event('visibilitychange'));
+    expect(shown().settings.targetWeight).toBe(160);
+  });
+
   it('picks up a new day when the page becomes visible again', () => {
     render(<AppStateProvider><Probe /></AppStateProvider>);
     vi.setSystemTime(new Date(2026, 8, 15, 8));

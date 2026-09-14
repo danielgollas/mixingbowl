@@ -15,7 +15,7 @@ describe('parseHash', () => {
     expect(parseHash(hash)).toEqual(route);
   });
 
-  it.each(['', '#', '#/', '#/nope', '#/today/extra', '#/recipes/a/b', 'today'])('rejects %j', (hash) => {
+  it.each(['', '#', '#/', '#/nope', '#/today/extra', '#/recipes/a/b', 'today', '#/recipes/%'])('rejects %j', (hash) => {
     expect(parseHash(hash)).toBeNull();
   });
 });

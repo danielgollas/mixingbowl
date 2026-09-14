@@ -17,7 +17,13 @@ export function parseHash(hash: string): Route | null {
   if (!match) return null;
   const [page, id, ...rest] = match[1].split('/');
   if (rest.length > 0) return null;
-  if (page === 'recipes' && id) return { name: 'recipe', id: decodeURIComponent(id) };
+  if (page === 'recipes' && id) {
+    try {
+      return { name: 'recipe', id: decodeURIComponent(id) };
+    } catch {
+      return null; // malformed escape such as "%"
+    }
+  }
   if (id !== undefined) return null;
   return (PAGES as readonly string[]).includes(page) ? { name: page as (typeof PAGES)[number] } : null;
 }

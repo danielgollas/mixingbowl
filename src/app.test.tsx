@@ -29,6 +29,16 @@ describe('routing', () => {
     expect(location.hash).toBe('#/today');
   });
 
+  it('moves focus to the new page heading after navigating, but not on first load', () => {
+    renderApp('#/today');
+    expect(document.activeElement).toBe(document.body);
+    history.replaceState(null, '', '#/week');
+    fireEvent(window, new HashChangeEvent('hashchange'));
+    const h1 = screen.getByRole('heading', { level: 1 });
+    expect(h1.textContent).toBe('Week 1');
+    expect(document.activeElement).toBe(h1);
+  });
+
   it('marks the Recipes tab current on a recipe page', () => {
     renderApp('#/recipes/crispy-tofu');
     const tabs = within(screen.getByRole('navigation', { name: 'Main' }));
@@ -128,6 +138,14 @@ describe('Recipes', () => {
     renderApp('#/recipes/nope');
     expect(heading()).toBe('Recipe not found');
   });
+
+  it('shows not found for inherited object keys and malformed escapes', () => {
+    const { unmount } = renderApp('#/recipes/constructor');
+    expect(heading()).toBe('Recipe not found');
+    unmount();
+    renderApp('#/recipes/%');
+    expect(heading()).toBe('Day 1 · Week 1');
+  });
 });
 
 describe('Shopping', () => {
@@ -169,6 +187,24 @@ describe('Settings', () => {
     fireEvent.click(screen.getByLabelText('kg'));
     expect(stored().settings).toMatchObject({ unit: 'kg', targetWeight: 72.6 });
     expect((screen.getByLabelText('Target weight') as HTMLInputElement).value).toBe('72.6');
+  });
+
+  it('keeps a saved weight when the browser cannot parse the typed text', () => {
+    renderApp('#/settings', { targetWeight: 160 });
+    const input = screen.getByLabelText('Target weight');
+    // Number inputs report unparseable text (e.g. "72,5") as value "" with validity.badInput set.
+    Object.defineProperty(input, 'validity', { configurable: true, value: { badInput: true } });
+    fireEvent.input(input, { target: { value: '' } });
+    expect(stored().settings.targetWeight).toBe(160);
+    fireEvent.blur(input);
+    screen.getByText('Enter a weight between 80 and 600 lb.');
+  });
+
+  it('ignores a cleared start date without showing an error', () => {
+    renderApp('#/settings');
+    fireEvent.input(screen.getByLabelText('Start date'), { target: { value: '' } });
+    expect(stored().settings.startDate).toBe(TODAY);
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 
   it('changes the start date', () => {

@@ -1,4 +1,4 @@
-import { useEffect } from 'preact/hooks';
+import { useEffect, useRef } from 'preact/hooks';
 import { TabBar } from './components/TabBar';
 import type { StorageLike } from './lib/storage';
 import { hrefFor, useHashRoute, type Route } from './router';
@@ -21,9 +21,20 @@ export function App({ storage }: { storage?: StorageLike | null }) {
 function Shell() {
   const route = useHashRoute();
   const href = hrefFor(route);
+  const isFirstRender = useRef(true);
 
   useEffect(() => {
     document.documentElement.scrollTop = 0;
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    // Move keyboard and screen-reader focus to the new page, as a full page load would.
+    const heading = document.querySelector<HTMLElement>('main h1');
+    if (heading) {
+      heading.tabIndex = -1;
+      heading.focus({ preventScroll: true });
+    }
   }, [href]);
 
   return (

@@ -21,33 +21,30 @@ export function Settings() {
   const { settings } = data;
   const [weightDraft, setWeightDraft] = useState(settings.targetWeight?.toString() ?? '');
   const [weightError, setWeightError] = useState<string | null>(null);
-  const [dateError, setDateError] = useState<string | null>(null);
 
   const range = WEIGHT_RANGE[settings.unit];
   const target = proteinTarget(settings.targetWeight, settings.unit);
 
+  // A cleared or half-typed date comes through as "" or an invalid date; keep the saved one until it's valid.
   const onDateChange = (value: string) => {
-    if (isIsoDate(value)) {
-      setSettings({ startDate: value });
-      setDateError(null);
-    } else {
-      setDateError('Choose a valid start date.');
-    }
+    if (isIsoDate(value)) setSettings({ startDate: value });
   };
 
   // Save as soon as the value is valid, but only complain once the field loses focus.
-  const onWeightInput = (value: string) => {
-    setWeightDraft(value);
-    const weight = parseWeight(value);
+  const onWeightInput = (input: HTMLInputElement) => {
+    setWeightDraft(input.value);
+    // Text the browser can't parse (e.g. "72,5") reads as "" with badInput set; that isn't clearing the field.
+    if (input.validity.badInput) return;
+    const weight = parseWeight(input.value);
     if (weight === null || isValidWeight(weight, settings.unit)) {
       setSettings({ targetWeight: weight });
       setWeightError(null);
     }
   };
 
-  const onWeightBlur = () => {
-    const weight = parseWeight(weightDraft);
-    if (weight !== null && !isValidWeight(weight, settings.unit)) {
+  const onWeightBlur = (input: HTMLInputElement) => {
+    const weight = parseWeight(input.value);
+    if (input.validity.badInput || (weight !== null && !isValidWeight(weight, settings.unit))) {
       setWeightError(`Enter a weight between ${range.min} and ${range.max} ${settings.unit}.`);
     }
   };
@@ -77,15 +74,9 @@ export function Settings() {
             id="start-date"
             type="date"
             value={settings.startDate}
-            aria-invalid={dateError ? 'true' : undefined}
             onInput={(e) => onDateChange(e.currentTarget.value)}
             onChange={(e) => onDateChange(e.currentTarget.value)}
           />
-          {dateError && (
-            <p class="error" role="alert">
-              {dateError}
-            </p>
-          )}
           <p class="meta">Day 1 of the seven-day cycle. Days 1, 3, 5 and 7 are Pattern A; days 2, 4 and 6 are Pattern B.</p>
         </div>
       </section>
@@ -105,8 +96,8 @@ export function Settings() {
               placeholder={settings.unit === 'lb' ? 'e.g. 160' : 'e.g. 72'}
               value={weightDraft}
               aria-invalid={weightError ? 'true' : undefined}
-              onInput={(e) => onWeightInput(e.currentTarget.value)}
-              onBlur={onWeightBlur}
+              onInput={(e) => onWeightInput(e.currentTarget)}
+              onBlur={(e) => onWeightBlur(e.currentTarget)}
             />
             <fieldset class="segmented">
               <legend class="visually-hidden">Unit</legend>
@@ -140,7 +131,7 @@ export function Settings() {
       <section class="card" aria-labelledby="about-title">
         <h2 id="about-title">About the numbers</h2>
         <p class="meta">
-          {`Daily calorie range: ${formatNumber(KCAL_MIN)}–${formatNumber(KCAL_MAX)} kcal. Calories and protein are estimated from approximate USDA values and will differ from your product labels. Everything you save stays in this browser.`}
+          {`Daily calorie range: ${formatNumber(KCAL_MIN)}–${formatNumber(KCAL_MAX)} kcal. Calories and protein are estimated from approximate USDA values and will differ from your product labels. A new day starts at 4am, so late-night eating counts toward the evening before. Everything you save stays in this browser.`}
         </p>
       </section>
     </>

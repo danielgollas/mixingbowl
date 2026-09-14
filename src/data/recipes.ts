@@ -326,3 +326,6 @@ export const RECIPE_LIST: Recipe[] = [
 ];
 
 export const RECIPES: Record<RecipeId, Recipe> = Object.fromEntries(RECIPE_LIST.map((r) => [r.id, r]));
+
+/** Looks up a recipe by id without matching inherited object keys such as "constructor". */
+export const getRecipe = (id: RecipeId): Recipe | undefined => (Object.hasOwn(RECIPES, id) ? RECIPES[id] : undefined);
