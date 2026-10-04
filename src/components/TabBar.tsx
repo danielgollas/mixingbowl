@@ -1,7 +1,7 @@
 import type { JSX } from 'preact';
 import { hrefFor, type Route } from '../router';
 
-type Page = Exclude<Route, { name: 'recipe' }>['name'];
+type Page = Exclude<Route, { name: 'component' }>['name'];
 
 const TABS: { page: Page; label: string; icon: JSX.Element }[] = [
   {
@@ -15,22 +15,22 @@ const TABS: { page: Page; label: string; icon: JSX.Element }[] = [
     ),
   },
   {
-    page: 'week',
-    label: 'Week',
+    page: 'menu',
+    label: 'Menu',
     icon: (
       <>
-        <rect x="3.5" y="5" width="17" height="15.5" rx="2.5" />
-        <path d="M3.5 10h17M8 3v4M16 3v4" />
+        <path d="M3.5 11.5h17a8.5 8.5 0 0 1-17 0z" />
+        <path d="M8 8.5c0-2 1.5-2 1.5-4M12 8.5c0-2 1.5-2 1.5-4M16 8.5c0-2 1.5-2 1.5-4" />
       </>
     ),
   },
   {
-    page: 'recipes',
-    label: 'Recipes',
+    page: 'prep',
+    label: 'Prep',
     icon: (
       <>
-        <path d="M5 4.5h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z" />
-        <path d="M5 17.5a3 3 0 0 1 3-3h11M9 8.5h6" />
+        <rect x="3.5" y="5" width="17" height="15.5" rx="2.5" />
+        <path d="M8 10.5l2 2 3.5-3.5M8 16h8" />
       </>
     ),
   },
@@ -58,15 +58,18 @@ const TABS: { page: Page; label: string; icon: JSX.Element }[] = [
   },
 ];
 
+const tabHref = (page: Page): string =>
+  page === 'menu' || page === 'prep' || page === 'shopping' ? hrefFor({ name: page, week: null }) : hrefFor({ name: page });
+
 export function TabBar({ route }: { route: Route }) {
-  const current: Page = route.name === 'recipe' ? 'recipes' : route.name;
+  const current: Page | null = route.name === 'component' ? null : route.name;
   return (
     <nav class="tabbar" aria-label="Main">
       {TABS.map((tab) => (
         <a
           key={tab.page}
           class="tab"
-          href={hrefFor({ name: tab.page })}
+          href={tabHref(tab.page)}
           aria-current={tab.page === current ? 'page' : undefined}
         >
           <svg viewBox="0 0 24 24" aria-hidden="true">

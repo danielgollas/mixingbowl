@@ -1,36 +1,43 @@
-import { SHOPPING } from '../data/shopping';
+import { WeekHeader, useWeek } from '../components/WeekHeader';
+import { planInput, shoppingList, weekPlan, weekTotals } from '../lib/prep';
 import { useAppState } from '../state';
 
-export function Shopping() {
+export function Shopping({ week: routeWeek }: { week: number | null }) {
   const { data, toggleShopping, clearShopping } = useAppState();
-  const items = SHOPPING.flatMap((category) => category.items);
-  const checked = items.filter((item) => data.shopping[item.id]).length;
+  const week = useWeek(routeWeek);
+  const groups = shoppingList(weekTotals(weekPlan(planInput(data), week)));
+  const checkedIds = data.checks[week]?.shopping ?? [];
+  const lines = groups.flatMap((g) => g.lines);
+  const checked = lines.filter((line) => checkedIds.includes(line.id)).length;
 
   return (
     <>
-      <header class="page-header title-row">
-        <div>
-          <h1>Shopping</h1>
-          <p class="meta">{`${checked} of ${items.length} checked`}</p>
-        </div>
-        <button type="button" class="button-secondary" onClick={clearShopping} disabled={checked === 0}>
-          New week
+      <WeekHeader page="shopping" title="Shopping" week={week} />
+      <div class="title-row">
+        <p class="meta">{`${checked} of ${lines.length} checked`}</p>
+        <button type="button" class="button-secondary" onClick={() => clearShopping(week)} disabled={checked === 0}>
+          Uncheck all
         </button>
-      </header>
+      </div>
 
-      {SHOPPING.map((category, index) => (
-        <section key={category.name} class="group" aria-labelledby={`shopping-${index}`}>
-          <h2 id={`shopping-${index}`}>{category.name}</h2>
+      {groups.map((group, index) => (
+        <section key={group.category} class="group" aria-labelledby={`shopping-${index}`}>
+          <h2 id={`shopping-${index}`}>{group.category}</h2>
           <ul class="card list">
-            {category.items.map((item) => (
-              <li key={item.id}>
+            {group.lines.map((line) => (
+              <li key={line.id}>
                 <label class="check">
                   <input
                     type="checkbox"
-                    checked={Boolean(data.shopping[item.id])}
-                    onChange={() => toggleShopping(item.id)}
+                    checked={checkedIds.includes(line.id)}
+                    onChange={() => toggleShopping(week, line.id)}
                   />
-                  <span>{item.name}</span>
+                  <span class="check-text">
+                    <span>{line.name}</span>
+                    {line.amount && (
+                      <span class="meta">{line.note ? `${line.amount} · ${line.note}` : line.amount}</span>
+                    )}
+                  </span>
                 </label>
               </li>
             ))}

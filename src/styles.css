@@ -10,8 +10,6 @@
   --accent-strong: #215c36;
   --accent-soft: #dcefe2;
   --planned: #bcdac6;
-  --pattern-b: #85560f;
-  --pattern-b-soft: #f6e7c8;
   --warning: #8f4700;
   --warning-soft: #fcebd6;
   --error: #b3261e;
@@ -34,8 +32,6 @@
     --accent-strong: #8fd6a7;
     --accent-soft: #223a2a;
     --planned: #355540;
-    --pattern-b: #f0c170;
-    --pattern-b-soft: #3a3020;
     --warning: #f3b46b;
     --warning-soft: #3a2a17;
     --error: #ff8a80;
@@ -214,15 +210,9 @@ h1:focus:not(:focus-visible) {
   color: var(--muted);
 }
 
-.pattern-a,
 .badge-today {
   background: var(--accent-soft);
   color: var(--accent-strong);
-}
-
-.pattern-b {
-  background: var(--pattern-b-soft);
-  color: var(--pattern-b);
 }
 
 .badge-derived {
@@ -442,57 +432,254 @@ a.prompt {
   cursor: not-allowed;
 }
 
-.topups {
+/* parts list inside a meal card */
+.parts {
   display: grid;
-  gap: 0.6rem;
+  gap: 0.2rem;
+  margin: 0.4rem 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.9rem;
 }
 
-.topup-list {
+.parts a {
+  color: var(--text);
+}
+
+.scaled {
+  color: var(--accent-strong);
+  font-weight: 700;
+}
+
+.meal {
+  align-items: start;
+}
+
+.meal-empty {
   display: grid;
-  gap: 0.5rem;
+  gap: 0.3rem;
+}
+
+/* ---- Week header ---- */
+
+.week-nav {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.week-nav a,
+.week-nav span {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 1.4rem;
+  line-height: 1;
+  text-decoration: none;
+}
+
+.week-nav span {
+  opacity: 0.35;
+}
+
+/* ---- Menu ---- */
+
+.entries {
+  display: grid;
+  gap: 0.6rem;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.topup-list li {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 0.1rem 0.75rem;
-  padding: 0.6rem 0.75rem;
-  border-radius: 10px;
-  background: var(--surface-2);
+.entry {
+  display: grid;
+  gap: 0.5rem;
 }
 
-.topup-food {
+.entry-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.entry-body {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.entry-name {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.stepper {
+  display: flex;
+  align-items: center;
+  flex: none;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.stepper button {
+  width: 44px;
+  height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--accent-strong);
+  font: inherit;
+  font-size: 1.3rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.stepper button:disabled {
+  color: var(--muted);
+  opacity: 0.4;
+  cursor: default;
+}
+
+.stepper output {
+  min-width: 1.5rem;
+  text-align: center;
+  font-weight: 700;
+}
+
+.entry-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+}
+
+.button-link {
+  min-height: 36px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-strong);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.add-select,
+.editor select,
+.editor input[type='text'] {
+  width: 100%;
+  min-height: 44px;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 1rem;
+}
+
+.add-select {
+  border-style: dashed;
+  color: var(--accent-strong);
   font-weight: 600;
 }
 
-/* ---- Week ---- */
-
-.day.is-today {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent);
-}
-
-.day-meals {
+.editor {
   display: grid;
-  gap: 0.35rem;
-  margin: 0.75rem 0;
-  padding: 0;
-  list-style: none;
-}
-
-.day-meals li {
-  display: grid;
-  grid-template-columns: 6rem 1fr;
   gap: 0.75rem;
-  align-items: baseline;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
 }
 
-.day-meals .meta {
-  font-size: 0.75rem;
+.field.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.chips legend {
+  margin-bottom: 0.4rem;
+  padding: 0;
+  font-weight: 600;
+}
+
+.chip {
+  position: relative;
+  display: inline-grid;
+}
+
+.chip input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.chip span {
+  padding: 0.45rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.875rem;
+}
+
+.chip input:checked + span {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
+.chip input:focus-visible + span {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---- Prep & shopping rows ---- */
+
+.check-text {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.check input:checked + .check-text {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.check-row {
+  display: flex;
+  align-items: center;
+}
+
+.check-row .check {
+  flex: 1;
+  min-width: 0;
+}
+
+.row-link {
+  flex: none;
+  padding: 0.75rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.meal-choices {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.meal-choices .check {
+  padding-inline: 0;
 }
 
 /* ---- Recipe detail ---- */

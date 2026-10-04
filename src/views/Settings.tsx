@@ -1,4 +1,6 @@
 import { useState } from 'preact/hooks';
+import { SLOT_KIND, SLOT_LABELS } from '../data/meals';
+import { SLOTS, type Slot } from '../data/types';
 import { formatNumber } from '../lib/format';
 import { isIsoDate } from '../lib/program';
 import {
@@ -9,7 +11,7 @@ import {
   isValidWeight,
   proteinTarget,
   type WeightUnit,
-} from '../lib/topups';
+} from '../lib/targets';
 import { useAppState } from '../state';
 
 const UNITS: WeightUnit[] = ['lb', 'kg'];
@@ -49,6 +51,13 @@ export function Settings() {
     }
   };
 
+  const onMealToggle = (slot: Slot) => {
+    const meals = settings.meals.includes(slot)
+      ? settings.meals.filter((s) => s !== slot)
+      : SLOTS.filter((s) => s === slot || settings.meals.includes(s));
+    if (meals.length > 0) setSettings({ meals });
+  };
+
   const onUnitChange = (unit: WeightUnit) => {
     if (unit === settings.unit) return;
     const targetWeight =
@@ -77,8 +86,32 @@ export function Settings() {
             onInput={(e) => onDateChange(e.currentTarget.value)}
             onChange={(e) => onDateChange(e.currentTarget.value)}
           />
-          <p class="meta">Day 1 of the seven-day cycle. Days 1, 3, 5 and 7 are Pattern A; days 2, 4 and 6 are Pattern B.</p>
+          <p class="meta">Day 1 of week 1. Each program week has its own menu, prep list and shopping list.</p>
         </div>
+      </section>
+
+      <section class="card form" aria-labelledby="meals-title">
+        <h2 id="meals-title">Meals you eat</h2>
+        <fieldset class="field meal-choices">
+          <legend class="visually-hidden">Meals you eat</legend>
+          {SLOTS.map((slot) => {
+            const on = settings.meals.includes(slot);
+            return (
+              <label key={slot} class="check">
+                <input
+                  type="checkbox"
+                  checked={on}
+                  disabled={on && settings.meals.length === 1}
+                  onChange={() => onMealToggle(slot)}
+                />
+                <span class="check-text">
+                  <span>{SLOT_LABELS[slot]}</span>
+                  <span class="meta">{SLOT_KIND[slot] === 'bowl' ? 'A bowl' : 'A snack'}</span>
+                </span>
+              </label>
+            );
+          })}
+        </fieldset>
       </section>
 
       <section class="card form" aria-labelledby="target-title">
@@ -131,7 +164,7 @@ export function Settings() {
       <section class="card" aria-labelledby="about-title">
         <h2 id="about-title">About the numbers</h2>
         <p class="meta">
-          {`Daily calorie range: ${formatNumber(KCAL_MIN)}–${formatNumber(KCAL_MAX)} kcal. Calories and protein are estimated from approximate USDA values and will differ from your product labels. A new day starts at 4am, so late-night eating counts toward the evening before. Everything you save stays in this browser.`}
+          {`Daily calorie range: ${formatNumber(KCAL_MIN)}–${formatNumber(KCAL_MAX)} kcal. Bowl proteins grow first, then beds, in half portions until the day reaches your targets, without going over ${formatNumber(KCAL_MAX)} kcal. Calories and protein are estimated from approximate USDA values and will differ from your product labels. A new day starts at 4am, so late-night eating counts toward the evening before. Everything you save stays in this browser.`}
         </p>
       </section>
     </>

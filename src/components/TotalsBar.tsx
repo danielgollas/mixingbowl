@@ -1,6 +1,6 @@
 import type { Nutrition } from '../data/types';
 import { formatNumber } from '../lib/format';
-import { KCAL_MAX, KCAL_MIN, type Range } from '../lib/topups';
+import { KCAL_MAX, KCAL_MIN, type Range } from '../lib/targets';
 
 interface Props {
   eaten: Nutrition;

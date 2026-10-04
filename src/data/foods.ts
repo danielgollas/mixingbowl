@@ -1,50 +1,94 @@
-import type { Food, FoodId } from './types';
+import type { Food, FoodCategory, FoodId, Pack } from './types';
+
+const pack = (grams: number, unit: string, units = `${unit}s`): Pack => ({ grams, unit, units });
+
+const food = (
+  id: FoodId,
+  name: string,
+  kcalPer100g: number,
+  proteinPer100g: number,
+  category: FoodCategory,
+  extra: Pick<Food, 'pack' | 'cookedPerDry'> = {},
+): Food => ({ id, name, kcalPer100g, proteinPer100g, category, ...extra });
 
 /** Approximate per-100 g values from USDA FoodData Central. Estimates, not label data. */
 export const FOOD_LIST: Food[] = [
-  { id: 'tofu-firm', name: 'Extra-firm tofu', kcalPer100g: 144, proteinPer100g: 17.3 },
-  { id: 'tofu-silken', name: 'Silken tofu', kcalPer100g: 55, proteinPer100g: 4.8 },
-  { id: 'spinach', name: 'Spinach', kcalPer100g: 23, proteinPer100g: 2.9 },
-  { id: 'mushrooms', name: 'Mushrooms', kcalPer100g: 22, proteinPer100g: 3.1 },
-  { id: 'riced-cauliflower', name: 'Riced cauliflower', kcalPer100g: 25, proteinPer100g: 1.9 },
-  { id: 'cauliflower', name: 'Cauliflower', kcalPer100g: 25, proteinPer100g: 1.9 },
-  { id: 'cabbage', name: 'Green cabbage', kcalPer100g: 25, proteinPer100g: 1.3 },
-  { id: 'mixed-greens', name: 'Mixed greens', kcalPer100g: 17, proteinPer100g: 1.5 },
-  { id: 'cucumber', name: 'Cucumber', kcalPer100g: 15, proteinPer100g: 0.7 },
-  { id: 'celery', name: 'Celery', kcalPer100g: 14, proteinPer100g: 0.7 },
-  { id: 'bamboo-shoots', name: 'Bamboo shoots', kcalPer100g: 19, proteinPer100g: 1.7 },
-  { id: 'shirataki', name: 'Shirataki noodles', kcalPer100g: 10, proteinPer100g: 0 },
-  { id: 'frozen-berries', name: 'Frozen berries', kcalPer100g: 45, proteinPer100g: 0.7 },
-  { id: 'almond-milk', name: 'Unsweetened almond milk', kcalPer100g: 15, proteinPer100g: 0.6 },
-  { id: 'ice', name: 'Ice', kcalPer100g: 0, proteinPer100g: 0 },
-  { id: 'soy-sauce', name: 'Low-sodium soy sauce', kcalPer100g: 53, proteinPer100g: 8.1 },
-  { id: 'rice-vinegar', name: 'Rice vinegar', kcalPer100g: 18, proteinPer100g: 0 },
-  { id: 'apple-cider-vinegar', name: 'Apple cider vinegar', kcalPer100g: 22, proteinPer100g: 0 },
-  { id: 'white-vinegar', name: 'White vinegar', kcalPer100g: 18, proteinPer100g: 0 },
-  { id: 'sriracha', name: 'Sriracha', kcalPer100g: 93, proteinPer100g: 1.9 },
-  { id: 'hot-sauce', name: 'Cayenne hot sauce', kcalPer100g: 11, proteinPer100g: 0.5 },
-  { id: 'pickle-juice', name: 'Pickle juice', kcalPer100g: 8, proteinPer100g: 0 },
-  { id: 'dill-pickles', name: 'Dill pickles', kcalPer100g: 12, proteinPer100g: 0.5 },
-  { id: 'tomato-paste', name: 'Tomato paste', kcalPer100g: 82, proteinPer100g: 4.3 },
-  { id: 'liquid-smoke', name: 'Liquid smoke', kcalPer100g: 0, proteinPer100g: 0 },
-  { id: 'lemon-juice', name: 'Lemon juice', kcalPer100g: 22, proteinPer100g: 0.4 },
-  { id: 'olive-oil-spray', name: 'Olive oil spray', kcalPer100g: 884, proteinPer100g: 0 },
-  { id: 'water', name: 'Water', kcalPer100g: 0, proteinPer100g: 0 },
-  { id: 'nutritional-yeast', name: 'Nutritional yeast', kcalPer100g: 400, proteinPer100g: 50 },
-  { id: 'xanthan-gum', name: 'Xanthan gum', kcalPer100g: 333, proteinPer100g: 0 },
-  { id: 'sweetener', name: 'Stevia / monk fruit', kcalPer100g: 0, proteinPer100g: 0 },
-  { id: 'garlic-powder', name: 'Garlic powder', kcalPer100g: 331, proteinPer100g: 16.6 },
-  { id: 'onion-powder', name: 'Onion powder', kcalPer100g: 341, proteinPer100g: 10.4 },
-  { id: 'smoked-paprika', name: 'Smoked paprika', kcalPer100g: 282, proteinPer100g: 14.1 },
-  { id: 'turmeric', name: 'Turmeric', kcalPer100g: 312, proteinPer100g: 9.7 },
-  { id: 'ginger', name: 'Ground ginger', kcalPer100g: 335, proteinPer100g: 9 },
-  { id: 'garlic', name: 'Garlic', kcalPer100g: 149, proteinPer100g: 6.4 },
-  { id: 'garlic-salt', name: 'Garlic salt', kcalPer100g: 80, proteinPer100g: 4 },
-  { id: 'dried-herbs', name: 'Dried herbs', kcalPer100g: 270, proteinPer100g: 15 },
-  { id: 'salt-pepper', name: 'Salt & pepper', kcalPer100g: 0, proteinPer100g: 0 },
-  { id: 'seitan', name: 'Seitan', kcalPer100g: 130, proteinPer100g: 21 },
-  { id: 'tempeh', name: 'Tempeh', kcalPer100g: 192, proteinPer100g: 20.3 },
-  { id: 'edamame', name: 'Edamame (shelled)', kcalPer100g: 121, proteinPer100g: 11.9 },
+  // ---- Proteins ----
+  food('tofu-firm', 'Extra-firm tofu', 144, 17.3, 'Proteins', { pack: pack(397, 'block') }),
+  food('tofu-silken', 'Silken tofu', 55, 4.8, 'Proteins', { pack: pack(349, 'pack') }),
+  food('tempeh', 'Tempeh', 192, 20.3, 'Proteins', { pack: pack(227, 'pack') }),
+  food('seitan', 'Seitan', 130, 21, 'Proteins', { pack: pack(227, 'pack') }),
+  food('yuba', 'Yuba (fresh or frozen tofu skin)', 220, 22, 'Proteins', { pack: pack(227, 'pack') }),
+  food('soy-curls', 'Soy curls (dry)', 440, 40, 'Proteins', { pack: pack(227, 'bag') }),
+  food('chickn-strips', "Plant-based chick'n strips", 160, 18, 'Proteins', { pack: pack(255, 'bag') }),
+  food('plant-crumbles', 'Plant-based crumbles', 200, 18, 'Proteins', { pack: pack(340, 'pack') }),
+  food('edamame', 'Frozen shelled edamame', 121, 11.9, 'Proteins', { pack: pack(340, 'bag') }),
+
+  // ---- Produce ----
+  food('spinach', 'Spinach', 23, 2.9, 'Produce'),
+  food('mushrooms', 'Mushrooms', 22, 3.1, 'Produce'),
+  food('riced-cauliflower', 'Riced cauliflower', 25, 1.9, 'Produce'),
+  food('cauliflower', 'Cauliflower', 25, 1.9, 'Produce', { pack: pack(588, 'head') }),
+  food('cabbage', 'Green cabbage', 25, 1.3, 'Produce', { pack: pack(908, 'head') }),
+  food('red-cabbage', 'Red cabbage', 31, 1.4, 'Produce', { pack: pack(850, 'head') }),
+  food('broccoli', 'Broccoli', 34, 2.8, 'Produce'),
+  food('bell-pepper', 'Bell peppers', 26, 1, 'Produce', { pack: pack(150, 'pepper') }),
+  food('onion', 'Onions', 40, 1.1, 'Produce', { pack: pack(150, 'onion') }),
+  food('carrot', 'Carrots', 41, 0.9, 'Produce'),
+  food('mixed-greens', 'Mixed greens', 17, 1.5, 'Produce'),
+  food('cucumber', 'Cucumbers', 15, 0.7, 'Produce', { pack: pack(300, 'cucumber') }),
+  food('celery', 'Celery', 14, 0.7, 'Produce'),
+  food('bamboo-shoots', 'Bamboo shoots', 19, 1.7, 'Produce'),
+  food('garlic', 'Fresh garlic', 149, 6.4, 'Produce'),
+  food('lemon-juice', 'Lemons or lemon juice', 22, 0.4, 'Produce'),
+  food('frozen-berries', 'Frozen strawberries / blueberries', 45, 0.7, 'Produce'),
+
+  // ---- Grains & noodles (beds are entered cooked) ----
+  food('brown-rice', 'Brown rice', 112, 2.3, 'Grains & Noodles', { cookedPerDry: 2.7 }),
+  food('quinoa', 'Quinoa', 120, 4.4, 'Grains & Noodles', { cookedPerDry: 2.8 }),
+  food('lentils', 'Lentils', 116, 9, 'Grains & Noodles', { cookedPerDry: 2.5 }),
+  food('soba', 'Soba noodles', 99, 5.1, 'Grains & Noodles', { cookedPerDry: 2.2 }),
+  food('rice-noodles', 'Rice noodles', 108, 1.8, 'Grains & Noodles', { cookedPerDry: 2.2 }),
+  food('shirataki', 'Shirataki / konjac noodles', 10, 0, 'Grains & Noodles', { pack: pack(200, 'bag') }),
+
+  // ---- Nuts & seeds ----
+  food('sesame-seeds', 'Sesame seeds', 573, 17.7, 'Nuts & Seeds'),
+  food('pumpkin-seeds', 'Pumpkin seeds', 559, 30, 'Nuts & Seeds'),
+  food('hemp-hearts', 'Hemp hearts', 553, 31.6, 'Nuts & Seeds'),
+
+  // ---- Sauces & condiments ----
+  food('soy-sauce', 'Low-sodium soy sauce / tamari', 53, 8.1, 'Sauces & Condiments'),
+  food('rice-vinegar', 'Rice vinegar', 18, 0, 'Sauces & Condiments'),
+  food('apple-cider-vinegar', 'Apple cider vinegar', 22, 0, 'Sauces & Condiments'),
+  food('white-vinegar', 'White vinegar', 18, 0, 'Sauces & Condiments'),
+  food('sriracha', 'Sriracha', 93, 1.9, 'Sauces & Condiments'),
+  food('hot-sauce', "Cayenne hot sauce (Frank's RedHot)", 11, 0.5, 'Sauces & Condiments'),
+  food('pickle-juice', 'Pickle juice', 8, 0, 'Sauces & Condiments'),
+  food('dill-pickles', 'Dill pickles', 12, 0.5, 'Sauces & Condiments'),
+  food('tomato-paste', 'Tomato paste', 82, 4.3, 'Sauces & Condiments'),
+  food('liquid-smoke', 'Liquid smoke', 0, 0, 'Sauces & Condiments'),
+  food('chili-crisp', 'Chili crisp', 680, 3, 'Sauces & Condiments'),
+  food('crispy-shallots', 'Crispy fried shallots', 560, 5, 'Sauces & Condiments'),
+  food('nori', 'Nori sheets', 35, 5.8, 'Sauces & Condiments'),
+  food('almond-milk', 'Unsweetened almond milk', 15, 0.6, 'Sauces & Condiments'),
+  food('olive-oil-spray', 'Olive oil spray', 884, 0, 'Sauces & Condiments'),
+
+  // ---- Spices & baking ----
+  food('nutritional-yeast', 'Nutritional yeast', 400, 50, 'Spices & Baking'),
+  food('xanthan-gum', 'Xanthan gum', 333, 0, 'Spices & Baking'),
+  food('sweetener', 'Stevia or monk fruit', 0, 0, 'Spices & Baking'),
+  food('garlic-powder', 'Garlic powder', 331, 16.6, 'Spices & Baking'),
+  food('onion-powder', 'Onion powder', 341, 10.4, 'Spices & Baking'),
+  food('smoked-paprika', 'Smoked paprika', 282, 14.1, 'Spices & Baking'),
+  food('turmeric', 'Turmeric', 312, 9.7, 'Spices & Baking'),
+  food('ginger', 'Ground ginger', 335, 9, 'Spices & Baking'),
+  food('garlic-salt', 'Garlic salt', 80, 4, 'Spices & Baking'),
+  food('dried-herbs', 'Dried dill, oregano & parsley', 270, 15, 'Spices & Baking'),
+
+  // ---- Basics (never on the shopping list) ----
+  food('water', 'Water', 0, 0, 'Basics'),
+  food('ice', 'Ice', 0, 0, 'Basics'),
+  food('salt-pepper', 'Salt & pepper', 0, 0, 'Basics'),
 ];
 
 export const FOODS: Record<FoodId, Food> = Object.fromEntries(FOOD_LIST.map((f) => [f.id, f]));

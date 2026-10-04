@@ -1,12 +1,9 @@
-import type { Pattern } from '../data/types';
-
 export interface ProgramPosition {
   started: boolean;
   daysUntilStart: number;
-  /** 1..7 within the repeating seven-day cycle. */
+  /** 1..7 within the program week. */
   day: number;
   week: number;
-  pattern: Pattern;
 }
 
 const DAY_MS = 86_400_000;
@@ -24,21 +21,15 @@ export const addDays = (date: string, days: number): string =>
 
 export const isIsoDate = (value: string): boolean => /^\d{4}-\d{2}-\d{2}$/.test(value) && addDays(value, 0) === value;
 
-/** Brief: days 1, 3, 5, 7 are Pattern A; days 2, 4, 6 are Pattern B. */
-export const patternForDay = (day: number): Pattern => (day % 2 === 1 ? 'A' : 'B');
-
 export function programPosition(startDate: string, today: string): ProgramPosition {
   const elapsed = daysBetween(startDate, today);
-  if (elapsed < 0) {
-    return { started: false, daysUntilStart: -elapsed, day: 1, week: 1, pattern: 'A' };
-  }
-  const day = (elapsed % 7) + 1;
-  return { started: true, daysUntilStart: 0, day, week: Math.floor(elapsed / 7) + 1, pattern: patternForDay(day) };
+  if (elapsed < 0) return { started: false, daysUntilStart: -elapsed, day: 1, week: 1 };
+  return { started: true, daysUntilStart: 0, day: (elapsed % 7) + 1, week: Math.floor(elapsed / 7) + 1 };
 }
 
-/** The seven dates of the current program week (week 1 if the program hasn't started). */
-export function weekDates(startDate: string, today: string): string[] {
-  const elapsed = Math.max(0, daysBetween(startDate, today));
-  const weekStart = addDays(startDate, elapsed - (elapsed % 7));
-  return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-}
+/** The first date of a program week (week 1 starts on the start date). */
+export const weekStart = (startDate: string, week: number): string => addDays(startDate, (week - 1) * 7);
+
+/** The seven dates of a program week. */
+export const weekDays = (startDate: string, week: number): string[] =>
+  Array.from({ length: 7 }, (_, i) => addDays(weekStart(startDate, week), i));

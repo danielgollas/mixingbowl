@@ -3,12 +3,12 @@ import { TabBar } from './components/TabBar';
 import type { StorageLike } from './lib/storage';
 import { hrefFor, useHashRoute, type Route } from './router';
 import { AppStateProvider } from './state';
-import { RecipeDetail } from './views/RecipeDetail';
-import { Recipes } from './views/Recipes';
+import { ComponentDetail } from './views/ComponentDetail';
+import { Menu } from './views/Menu';
+import { Prep } from './views/Prep';
 import { Settings } from './views/Settings';
 import { Shopping } from './views/Shopping';
 import { Today } from './views/Today';
-import { Week } from './views/Week';
 
 export function App({ storage }: { storage?: StorageLike | null }) {
   return (
@@ -57,14 +57,14 @@ function View({ route }: { route: Route }) {
   switch (route.name) {
     case 'today':
       return <Today />;
-    case 'week':
-      return <Week />;
-    case 'recipes':
-      return <Recipes />;
-    case 'recipe':
-      return <RecipeDetail id={route.id} />;
+    case 'menu':
+      return <Menu week={route.week} />;
+    case 'prep':
+      return <Prep week={route.week} />;
     case 'shopping':
-      return <Shopping />;
+      return <Shopping week={route.week} />;
+    case 'component':
+      return <ComponentDetail id={route.id} />;
     case 'settings':
       return <Settings />;
   }

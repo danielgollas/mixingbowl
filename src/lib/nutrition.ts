@@ -1,7 +1,6 @@
+import { COMPONENTS } from '../data/components';
 import { FOODS } from '../data/foods';
-import { PLAN } from '../data/plan';
-import { RECIPES } from '../data/recipes';
-import { SLOTS, type Food, type FoodId, type Nutrition, type Pattern, type Recipe, type RecipeId, type Slot } from '../data/types';
+import type { Component, ComponentId, Food, FoodId, Meal, Nutrition } from '../data/types';
 
 export const ZERO: Nutrition = { kcal: 0, protein: 0 };
 
@@ -16,24 +15,24 @@ export function foodNutrition(foodId: FoodId, grams: number, foods: Record<FoodI
   return { kcal: (food.kcalPer100g * grams) / 100, protein: (food.proteinPer100g * grams) / 100 };
 }
 
-export function recipeNutrition(
-  recipeId: RecipeId,
-  recipes: Record<RecipeId, Recipe> = RECIPES,
+/** One portion of a component, including the components it uses. */
+export function componentNutrition(
+  id: ComponentId,
+  components: Record<ComponentId, Component> = COMPONENTS,
   foods: Record<FoodId, Food> = FOODS,
 ): Nutrition {
-  const recipe = Object.hasOwn(recipes, recipeId) ? recipes[recipeId] : undefined;
-  if (!recipe) throw new Error(`Unknown recipe: ${recipeId}`);
+  const component = Object.hasOwn(components, id) ? components[id] : undefined;
+  if (!component) throw new Error(`Unknown component: ${id}`);
   let total = ZERO;
-  for (const ingredient of recipe.ingredients) {
+  for (const ingredient of component.ingredients) {
     total = addNutrition(total, foodNutrition(ingredient.foodId, ingredient.grams, foods));
   }
-  for (const component of recipe.components) {
-    total = addNutrition(total, recipeNutrition(component.recipeId, recipes, foods), component.servings);
+  for (const use of component.uses) {
+    total = addNutrition(total, componentNutrition(use.componentId, components, foods), use.servings);
   }
   return total;
 }
 
-export const slotsTotals = (pattern: Pattern, slots: readonly Slot[]): Nutrition =>
-  slots.reduce((total, slot) => addNutrition(total, recipeNutrition(PLAN[pattern][slot])), ZERO);
-
-export const patternTotals = (pattern: Pattern): Nutrition => slotsTotals(pattern, SLOTS);
+/** A meal with each part at the given servings (default one). */
+export const mealNutrition = (meal: Meal, servings: Partial<Record<ComponentId, number>> = {}): Nutrition =>
+  meal.parts.reduce((total, id) => addNutrition(total, componentNutrition(id), servings[id] ?? 1), ZERO);

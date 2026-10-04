@@ -1,6 +1,6 @@
 import { createContext, type ComponentChildren } from 'preact';
 import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { SLOTS, type Slot } from './data/types';
+import { SLOTS, type Meal, type MenuEntry, type Slot } from './data/types';
 import { today as currentDate } from './lib/clock';
 import {
   STORAGE_KEY,
@@ -10,6 +10,7 @@ import {
   type AppData,
   type Settings,
   type StorageLike,
+  type WeekChecks,
 } from './lib/storage';
 
 export interface AppState {
@@ -19,10 +20,17 @@ export interface AppState {
   /** False when changes can't be saved in this browser. */
   persistent: boolean;
   toggleEaten(date: string, slot: Slot): void;
-  toggleShopping(itemId: string): void;
-  clearShopping(): void;
   setSettings(changes: Partial<Settings>): void;
+  /** Replaces one meal's entries for a program week. */
+  setMenu(week: number, slot: Slot, entries: MenuEntry[]): void;
+  /** Adds or replaces one of your own bowls. */
+  saveCustomMeal(meal: Meal): void;
+  togglePrep(week: number, componentId: string): void;
+  toggleShopping(week: number, foodId: string): void;
+  clearShopping(week: number): void;
 }
+
+const toggleIn = (list: string[], id: string) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
 
 const AppStateContext = createContext<AppState | null>(null);
 
@@ -83,20 +91,24 @@ export function AppStateProvider({ children, storage }: ProviderProps) {
           else delete eaten[date];
           return { ...d, eaten };
         }),
-      toggleShopping: (itemId) =>
-        setData((d) => {
-          const shopping = { ...d.shopping };
-          if (shopping[itemId]) delete shopping[itemId];
-          else shopping[itemId] = true;
-          return { ...d, shopping };
-        }),
-      clearShopping: () => setData((d) => ({ ...d, shopping: {} })),
       setSettings: (changes) => setData((d) => ({ ...d, settings: { ...d.settings, ...changes } })),
+      setMenu: (week, slot, entries) =>
+        setData((d) => ({ ...d, menus: { ...d.menus, [week]: { ...d.menus[week], [slot]: entries } } })),
+      saveCustomMeal: (meal) => setData((d) => ({ ...d, customMeals: { ...d.customMeals, [meal.id]: meal } })),
+      togglePrep: (week, id) => setData((d) => updateChecks(d, week, (c) => ({ ...c, prep: toggleIn(c.prep, id) }))),
+      toggleShopping: (week, id) =>
+        setData((d) => updateChecks(d, week, (c) => ({ ...c, shopping: toggleIn(c.shopping, id) }))),
+      clearShopping: (week) => setData((d) => updateChecks(d, week, (c) => ({ ...c, shopping: [] }))),
     }),
     [data, today, persistent],
   );
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;
+}
+
+function updateChecks(data: AppData, week: number, change: (checks: WeekChecks) => WeekChecks): AppData {
+  const current = data.checks[week] ?? { prep: [], shopping: [] };
+  return { ...data, checks: { ...data.checks, [week]: change(current) } };
 }
 
 export function useAppState(): AppState {

@@ -1,83 +1,120 @@
 import { describe, expect, it } from 'vitest';
-import { ADDONS } from './addons';
+import { COMPONENT_LIST, COMPONENTS, getComponent } from './components';
 import { FOOD_LIST, FOODS } from './foods';
-import { PLAN } from './plan';
-import { RECIPE_LIST, RECIPES } from './recipes';
-import { PANTRY_BASICS, SHOPPING } from './shopping';
-import { SLOTS } from './types';
+import { DEFAULT_MEALS, DEFAULT_MENU, PRESET_MEALS, SLOT_KIND, getPreset, isValidMeal } from './meals';
+import { SLOTS, type Meal } from './types';
 
 const duplicates = (ids: string[]) => ids.filter((id, i) => ids.indexOf(id) !== i);
 
-describe('data integrity', () => {
-  it('has unique food, recipe and shopping ids', () => {
+describe('foods and components', () => {
+  it('has unique ids', () => {
     expect(duplicates(FOOD_LIST.map((f) => f.id))).toEqual([]);
-    expect(duplicates(RECIPE_LIST.map((r) => r.id))).toEqual([]);
-    expect(duplicates(SHOPPING.flatMap((c) => c.items.map((i) => i.id)))).toEqual([]);
+    expect(duplicates(COMPONENT_LIST.map((c) => c.id))).toEqual([]);
+    expect(duplicates(PRESET_MEALS.map((m) => m.id))).toEqual([]);
   });
 
-  it('references only existing foods and recipes', () => {
-    for (const recipe of RECIPE_LIST) {
-      for (const ingredient of recipe.ingredients) {
-        expect(FOODS[ingredient.foodId], `${recipe.id} → ${ingredient.foodId}`).toBeDefined();
+  it('references only existing foods and components', () => {
+    for (const component of COMPONENT_LIST) {
+      for (const ingredient of component.ingredients) {
+        expect(FOODS[ingredient.foodId], `${component.id} → ${ingredient.foodId}`).toBeDefined();
         expect(ingredient.grams).toBeGreaterThanOrEqual(0);
       }
-      for (const component of recipe.components) {
-        expect(RECIPES[component.recipeId], `${recipe.id} → ${component.recipeId}`).toBeDefined();
-        expect(component.servings).toBeGreaterThan(0);
+      for (const use of component.uses) {
+        expect(COMPONENTS[use.componentId], `${component.id} → ${use.componentId}`).toBeDefined();
+        expect(use.servings).toBeGreaterThan(0);
       }
     }
   });
 
-  it('has no component cycles', () => {
+  it('has no cycles in components that use other components', () => {
     const visit = (id: string, path: string[]) => {
       expect(path, `cycle: ${[...path, id].join(' → ')}`).not.toContain(id);
-      for (const c of RECIPES[id].components) visit(c.recipeId, [...path, id]);
+      for (const use of COMPONENTS[id].uses) visit(use.componentId, [...path, id]);
     };
-    for (const recipe of RECIPE_LIST) visit(recipe.id, []);
+    for (const component of COMPONENT_LIST) visit(component.id, []);
   });
 
-  it('gives every recipe at least one method and step', () => {
-    for (const recipe of RECIPE_LIST) {
-      expect(recipe.methods.length, recipe.id).toBeGreaterThan(0);
-      expect(recipe.steps.length, recipe.id).toBeGreaterThan(0);
+  it('gives every component a portion, a method and steps', () => {
+    for (const component of COMPONENT_LIST) {
+      expect(component.portion.amount, component.id).toBeGreaterThan(0);
+      expect(component.methods.length, component.id).toBeGreaterThan(0);
+      expect(component.steps.length, component.id).toBeGreaterThan(0);
+      expect(component.ingredients.length + component.uses.length, component.id).toBeGreaterThan(0);
     }
   });
 
-  it('includes the 4 master recipes and 8 sauces from the brief', () => {
-    const masters = RECIPE_LIST.filter((r) => r.kind === 'master');
-    const sauces = RECIPE_LIST.filter((r) => r.kind === 'sauce');
-    expect(masters).toHaveLength(4);
+  it('builds combo beds from the single beds, so prep shares one line per bed', () => {
+    expect(COMPONENTS['lentils-rice'].uses.map((u) => u.componentId)).toEqual(['brown-rice', 'lentils']);
+    expect(COMPONENTS['quinoa-lentils'].uses.map((u) => u.componentId)).toEqual(['quinoa', 'lentils']);
+  });
+
+  it('includes the 8 sauces from the brief', () => {
+    const sauces = COMPONENT_LIST.filter((c) => c.role === 'sauce');
     expect(sauces).toHaveLength(8);
-    for (const r of [...masters, ...sauces]) expect(r.source, r.id).toBe('brief');
-    for (const s of sauces) expect(s.briefKcal, s.id).toBeTypeOf('number');
-  });
-
-  it('fills every plan slot with a meal or master recipe', () => {
-    for (const pattern of ['A', 'B'] as const) {
-      for (const slot of SLOTS) {
-        const recipe = RECIPES[PLAN[pattern][slot]];
-        expect(recipe, `${pattern}.${slot}`).toBeDefined();
-        expect(['master', 'meal']).toContain(recipe.kind);
-      }
+    for (const sauce of sauces) {
+      expect(sauce.source, sauce.id).toBe('brief');
+      expect(sauce.briefKcal, sauce.id).toBeTypeOf('number');
     }
   });
 
-  it('lists every recipe and top-up food on the shopping list', () => {
-    const listed = new Set(SHOPPING.flatMap((c) => c.items.flatMap((i) => i.foods)));
-    const used = new Set([
-      ...RECIPE_LIST.flatMap((r) => r.ingredients.map((i) => i.foodId)),
-      ...ADDONS.map((a) => a.foodId),
-    ]);
-    const missing = [...used].filter((id) => !listed.has(id) && !PANTRY_BASICS.includes(id));
-    expect(missing).toEqual([]);
-    for (const id of listed) expect(FOODS[id], `shopping → ${id}`).toBeDefined();
+  it('has options for every bowl slot', () => {
+    for (const role of ['bed', 'protein', 'veg', 'sauce', 'topping', 'snack'] as const) {
+      expect(COMPONENT_LIST.filter((c) => c.role === role).length, role).toBeGreaterThanOrEqual(5);
+    }
   });
 
-  it('builds top-ups from existing foods', () => {
-    for (const addon of ADDONS) {
-      expect(FOODS[addon.foodId], addon.foodId).toBeDefined();
-      expect(addon.stepGrams).toBeGreaterThan(0);
-      expect(addon.maxSteps).toBeGreaterThan(0);
+  it('does not match inherited object keys as ids', () => {
+    expect(getComponent('constructor')).toBeUndefined();
+    expect(getPreset('toString')).toBeUndefined();
+  });
+});
+
+describe('meals', () => {
+  it('has ten valid preset bowls and five valid snacks', () => {
+    expect(PRESET_MEALS.filter((m) => m.kind === 'bowl')).toHaveLength(10);
+    expect(PRESET_MEALS.filter((m) => m.kind === 'snack')).toHaveLength(5);
+    for (const meal of PRESET_MEALS) expect(isValidMeal(meal), meal.id).toBe(true);
+  });
+
+  it('reuses components across preset bowls', () => {
+    const uses = (id: string) => PRESET_MEALS.filter((m) => m.parts.includes(id)).length;
+    expect(uses('brown-rice')).toBeGreaterThanOrEqual(3);
+    expect(uses('crispy-tofu')).toBeGreaterThanOrEqual(3);
+  });
+
+  it('fills the default menu with seven days of the right kind for every meal', () => {
+    for (const slot of SLOTS) {
+      const entries = DEFAULT_MENU[slot];
+      expect(entries.reduce((sum, e) => sum + e.days, 0), slot).toBe(7);
+      for (const entry of entries) expect(getPreset(entry.mealId)?.kind, `${slot} → ${entry.mealId}`).toBe(SLOT_KIND[slot]);
     }
+    expect(DEFAULT_MEALS).toEqual(['snack', 'dinner']);
+  });
+
+  describe('isValidMeal', () => {
+    const bowl = (parts: string[], name = 'Mine'): Meal => ({ id: 'x', name, kind: 'bowl', parts });
+
+    it('accepts any number of veg, and no sauce or topping', () => {
+      expect(isValidMeal(bowl(['quinoa', 'seitan']))).toBe(true);
+      expect(isValidMeal(bowl(['quinoa', 'seitan', 'roasted-broccoli', 'mixed-greens', 'crunchy-slaw', 'nori']))).toBe(true);
+    });
+
+    it('needs exactly one bed and one protein', () => {
+      expect(isValidMeal(bowl(['seitan', 'mixed-greens']))).toBe(false);
+      expect(isValidMeal(bowl(['quinoa', 'brown-rice', 'seitan']))).toBe(false);
+      expect(isValidMeal(bowl(['quinoa', 'seitan', 'tempeh']))).toBe(false);
+    });
+
+    it('allows at most one sauce and one topping', () => {
+      expect(isValidMeal(bowl(['quinoa', 'seitan', 'spicy-mayo', 'maple-bbq']))).toBe(false);
+      expect(isValidMeal(bowl(['quinoa', 'seitan', 'nori', 'chili-crisp']))).toBe(false);
+    });
+
+    it('rejects snacks, unknown parts, duplicates and blank names', () => {
+      expect(isValidMeal(bowl(['quinoa', 'seitan', 'protein-fluff']))).toBe(false);
+      expect(isValidMeal(bowl(['quinoa', 'seitan', 'unobtainium']))).toBe(false);
+      expect(isValidMeal(bowl(['quinoa', 'seitan', 'nori', 'nori']))).toBe(false);
+      expect(isValidMeal(bowl(['quinoa', 'seitan'], '  '))).toBe(false);
+    });
   });
 });

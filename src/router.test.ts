@@ -3,10 +3,13 @@ import { hrefFor, parseHash, type Route } from './router';
 
 const ROUTES: [string, Route][] = [
   ['#/today', { name: 'today' }],
-  ['#/week', { name: 'week' }],
-  ['#/recipes', { name: 'recipes' }],
-  ['#/recipes/crispy-tofu', { name: 'recipe', id: 'crispy-tofu' }],
-  ['#/shopping', { name: 'shopping' }],
+  ['#/menu', { name: 'menu', week: null }],
+  ['#/menu/3', { name: 'menu', week: 3 }],
+  ['#/prep', { name: 'prep', week: null }],
+  ['#/prep/12', { name: 'prep', week: 12 }],
+  ['#/shopping', { name: 'shopping', week: null }],
+  ['#/shopping/1', { name: 'shopping', week: 1 }],
+  ['#/components/crispy-tofu', { name: 'component', id: 'crispy-tofu' }],
   ['#/settings', { name: 'settings' }],
 ];
 
@@ -15,7 +18,7 @@ describe('parseHash', () => {
     expect(parseHash(hash)).toEqual(route);
   });
 
-  it.each(['', '#', '#/', '#/nope', '#/today/extra', '#/recipes/a/b', 'today', '#/recipes/%'])('rejects %j', (hash) => {
+  it.each(['', '#', '#/', '#/nope', '#/today/extra', '#/components/a/b', 'today', '#/components/%', '#/menu/0', '#/menu/x', '#/prep/1/2', '#/week', '#/recipes'])('rejects %j', (hash) => {
     expect(parseHash(hash)).toBeNull();
   });
 });

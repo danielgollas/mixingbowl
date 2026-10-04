@@ -12,8 +12,16 @@ function Probe() {
       <output data-testid="today">{state.today}</output>
       <button onClick={() => state.toggleEaten('2026-09-14', 'lunch')}>lunch</button>
       <button onClick={() => state.toggleEaten('2026-09-14', 'breakfast')}>breakfast</button>
-      <button onClick={() => state.toggleShopping('celery')}>celery</button>
-      <button onClick={() => state.clearShopping()}>clear</button>
+      <button onClick={() => state.toggleShopping(1, 'celery')}>celery</button>
+      <button onClick={() => state.toggleShopping(2, 'celery')}>celery 2</button>
+      <button onClick={() => state.clearShopping(1)}>clear</button>
+      <button onClick={() => state.togglePrep(1, 'brown-rice')}>rice</button>
+      <button onClick={() => state.setMenu(2, 'dinner', [{ mealId: 'seitan-soba-bowl', days: 7 }])}>menu</button>
+      <button
+        onClick={() => state.saveCustomMeal({ id: 'custom-a', name: 'Mine', kind: 'bowl', parts: ['soba', 'yuba'] })}
+      >
+        custom
+      </button>
       <button onClick={() => state.setSettings({ targetWeight: 160 })}>weight</button>
     </div>
   );
@@ -46,21 +54,32 @@ describe('AppStateProvider', () => {
     expect(stored().eaten).toEqual({});
   });
 
-  it('toggles and clears shopping checks', () => {
+  it('toggles and clears shopping checks per week', () => {
     render(<AppStateProvider><Probe /></AppStateProvider>);
     click('celery');
-    expect(stored().shopping).toEqual({ celery: true });
+    click('celery 2');
+    expect(stored().checks).toEqual({ 1: { prep: [], shopping: ['celery'] }, 2: { prep: [], shopping: ['celery'] } });
     click('celery');
-    expect(stored().shopping).toEqual({});
+    expect(stored().checks[1].shopping).toEqual([]);
     click('celery');
+    click('rice');
     click('clear');
-    expect(stored().shopping).toEqual({});
+    expect(stored().checks[1]).toEqual({ prep: ['brown-rice'], shopping: [] });
+    expect(stored().checks[2].shopping).toEqual(['celery']);
+  });
+
+  it('saves a week’s menu for one meal and your own bowls', () => {
+    render(<AppStateProvider><Probe /></AppStateProvider>);
+    click('custom');
+    click('menu');
+    expect(stored().menus).toEqual({ 2: { dinner: [{ mealId: 'seitan-soba-bowl', days: 7 }] } });
+    expect(stored().customMeals['custom-a'].parts).toEqual(['soba', 'yuba']);
   });
 
   it('merges settings changes', () => {
     render(<AppStateProvider><Probe /></AppStateProvider>);
     click('weight');
-    expect(stored().settings).toEqual({ startDate: '2026-09-14', targetWeight: 160, unit: 'lb' });
+    expect(stored().settings).toEqual({ startDate: '2026-09-14', targetWeight: 160, unit: 'lb', meals: ['snack', 'dinner'] });
   });
 
   it('saves a change before the next frame, so closing the tab right away keeps it', async () => {
@@ -97,11 +116,14 @@ describe('AppStateProvider', () => {
 
   it('reloads saved data when another tab changes it, so saves keep both edits', () => {
     render(<AppStateProvider><Probe /></AppStateProvider>);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...stored(), shopping: { seitan: true } }));
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ ...stored(), checks: { 1: { prep: [], shopping: ['seitan'] } } }),
+    );
     fireEvent(window, new StorageEvent('storage', { key: STORAGE_KEY }));
-    expect(shown().shopping).toEqual({ seitan: true });
+    expect(shown().checks[1].shopping).toEqual(['seitan']);
     click('celery');
-    expect(stored().shopping).toEqual({ seitan: true, celery: true });
+    expect(stored().checks[1].shopping).toEqual(['seitan', 'celery']);
   });
 
   it('reloads saved data when the page becomes visible again', () => {
