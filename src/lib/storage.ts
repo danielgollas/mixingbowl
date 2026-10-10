@@ -23,6 +23,8 @@ export interface Person {
   targetWeight: number | null;
   /** The meals this person eats, in slot order. Never empty. */
   meals: Slot[];
+  /** Scale portions to this person's targets; off for someone who also eats outside the plan. */
+  scale: boolean;
 }
 
 export const MAX_PEOPLE = 8;
@@ -55,6 +57,7 @@ export const newPerson = (id: string, name: string): Person => ({
   name,
   targetWeight: null,
   meals: [...DEFAULT_MEALS],
+  scale: true,
 });
 
 export const defaultData = (today: string): AppData => ({
@@ -96,6 +99,7 @@ function parsePerson(value: unknown, index: number): Person | null {
     name: name || `Person ${index + 1}`,
     targetWeight: typeof weight === 'number' && Number.isFinite(weight) && weight > 0 ? weight : null,
     meals: meals.length > 0 ? meals : [...DEFAULT_MEALS],
+    scale: value.scale !== false,
   };
 }
 

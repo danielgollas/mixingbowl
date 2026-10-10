@@ -1037,3 +1037,7 @@ a.prompt {
   font-size: 1.1rem;
   font-weight: 700;
 }
+
+.scale-toggle {
+  padding-inline: 0;
+}

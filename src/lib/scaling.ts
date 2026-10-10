@@ -39,10 +39,12 @@ interface Candidate {
 const density = (n: Nutrition) => (n.kcal > 0 ? n.protein / n.kcal : 0);
 
 /**
+ * With `scale` off, every part stays at one serving.
+ *
  * Grows the day's bowl portions toward the kcal floor and (when known) the protein floor: protein parts
  * first, most protein per kcal first, then beds, in half servings, never past the kcal ceiling.
  */
-export function scaleDay(planned: PlannedMeal[], proteinMin: number | null): ScaledDay {
+export function scaleDay(planned: PlannedMeal[], proteinMin: number | null, scale = true): ScaledDay {
   const candidates: Candidate[] = [];
   planned.forEach(({ meal }, index) => {
     if (meal.kind !== 'bowl') return;
@@ -70,7 +72,7 @@ export function scaleDay(planned: PlannedMeal[], proteinMin: number | null): Sca
   const isShort = () => total.kcal < KCAL_MIN || (proteinMin !== null && total.protein < proteinMin);
   const fits = (c: Candidate) => c.steps < c.maxSteps && total.kcal + c.step.kcal <= KCAL_MAX;
 
-  while (isShort()) {
+  while (scale && isShort()) {
     const next = proteins.find(fits) ?? beds.find(fits);
     if (!next) break;
     next.steps += 1;
@@ -86,10 +88,11 @@ export function scaleDay(planned: PlannedMeal[], proteinMin: number | null): Sca
   return {
     meals,
     total,
+    // Without scaling there's no target to fall short of or go over.
     shortBy: {
-      kcal: Math.max(0, KCAL_MIN - total.kcal),
-      protein: proteinMin === null ? 0 : Math.max(0, proteinMin - total.protein),
+      kcal: scale ? Math.max(0, KCAL_MIN - total.kcal) : 0,
+      protein: scale && proteinMin !== null ? Math.max(0, proteinMin - total.protein) : 0,
     },
-    over: Math.max(0, unscaled.kcal - KCAL_MAX),
+    over: scale ? Math.max(0, unscaled.kcal - KCAL_MAX) : 0,
   };
 }

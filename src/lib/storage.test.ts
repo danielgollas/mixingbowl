@@ -25,7 +25,7 @@ describe('load', () => {
     expect(defaultData(TODAY)).toEqual({
       version: 3,
       settings: { startDate: TODAY, unit: 'lb' },
-      people: [{ id: 'me', name: 'Me', targetWeight: null, meals: ['snack', 'dinner'] }],
+      people: [{ id: 'me', name: 'Me', targetWeight: null, meals: ['snack', 'dinner'], scale: true }],
       activePerson: 'me',
       eaten: {},
       menus: {},
@@ -64,7 +64,7 @@ describe('load', () => {
     expect(data).toEqual({
       ...defaultData(TODAY),
       settings: { startDate: '2026-09-01', unit: 'lb' },
-      people: [{ id: 'me', name: 'Me', targetWeight: 160, meals: ['snack', 'dinner'] }],
+      people: [{ id: 'me', name: 'Me', targetWeight: 160, meals: ['snack', 'dinner'], scale: true }],
       eaten: { me: { '2026-09-02': ['breakfast', 'dinner'] } },
     });
   });
@@ -84,7 +84,7 @@ describe('load', () => {
     expect(data).toEqual({
       version: 3,
       settings: { startDate: '2026-09-01', unit: 'kg' },
-      people: [{ id: 'me', name: 'Me', targetWeight: 72.5, meals: ['lunch', 'dinner'] }],
+      people: [{ id: 'me', name: 'Me', targetWeight: 72.5, meals: ['lunch', 'dinner'], scale: true }],
       activePerson: 'me',
       eaten: { me: { '2026-09-02': ['lunch'] } },
       menus: { '2': { dinner: [{ mealId: 'custom-a', days: 7 }] } },
@@ -98,10 +98,10 @@ describe('load', () => {
       storageWith({
         version: 3,
         people: [
-          { id: 'a', name: '  Ana ', targetWeight: 140, meals: ['dinner'] },
+          { id: 'a', name: '  Ana ', targetWeight: 140, meals: ['dinner'], scale: true },
           { id: 'a', name: 'Duplicate' },
           { name: 'No id' },
-          { id: 'b', name: ' ', targetWeight: -3, meals: ['brunch'] },
+          { id: 'b', name: ' ', targetWeight: -3, meals: ['brunch'], scale: true },
         ],
         activePerson: 'gone',
         eaten: { a: { '2026-09-02': ['dinner'] }, gone: { '2026-09-02': ['dinner'] }, b: 'x' },
@@ -109,11 +109,19 @@ describe('load', () => {
       TODAY,
     );
     expect(data.people).toEqual([
-      { id: 'a', name: 'Ana', targetWeight: 140, meals: ['dinner'] },
-      { id: 'b', name: 'Person 2', targetWeight: null, meals: ['snack', 'dinner'] },
+      { id: 'a', name: 'Ana', targetWeight: 140, meals: ['dinner'], scale: true },
+      { id: 'b', name: 'Person 2', targetWeight: null, meals: ['snack', 'dinner'], scale: true },
     ]);
     expect(data.activePerson).toBe('a');
     expect(data.eaten).toEqual({ a: { '2026-09-02': ['dinner'] } });
+  });
+
+  it('scales portions unless a person has scaling turned off', () => {
+    const data = load(
+      storageWith({ version: 3, people: [{ id: 'a', name: 'A' }, { id: 'b', name: 'B', scale: false }] }),
+      TODAY,
+    );
+    expect(data.people.map((p) => p.scale)).toEqual([true, false]);
   });
 
   it('falls back to one default person when none are valid', () => {
@@ -130,7 +138,7 @@ describe('load', () => {
       TODAY,
     );
     expect(data.settings).toEqual({ startDate: TODAY, unit: 'lb' });
-    expect(data.people[0]).toEqual({ id: 'me', name: 'Me', targetWeight: null, meals: ['lunch', 'dinner'] });
+    expect(data.people[0]).toEqual({ id: 'me', name: 'Me', targetWeight: null, meals: ['lunch', 'dinner'], scale: true });
     expect(data.eaten).toEqual({ me: { '2026-09-02': ['breakfast'] } });
   });
 
@@ -201,8 +209,8 @@ describe('save', () => {
       ...defaultData('2026-09-01'),
       settings: { startDate: '2026-09-01', unit: 'lb' },
       people: [
-        { id: 'me', name: 'Me', targetWeight: 160, meals: ['lunch', 'dinner'] },
-        { id: 'p2', name: 'Alex', targetWeight: null, meals: ['dinner'] },
+        { id: 'me', name: 'Me', targetWeight: 160, meals: ['lunch', 'dinner'], scale: true },
+        { id: 'p2', name: 'Alex', targetWeight: null, meals: ['dinner'], scale: true },
       ],
       activePerson: 'p2',
       eaten: { me: { '2026-09-14': ['lunch'] } },

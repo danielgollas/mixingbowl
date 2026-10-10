@@ -63,6 +63,10 @@ export function Today() {
 
       <TotalsBar eaten={eaten} planned={plan.total} target={target} />
 
+      {!person.scale && (
+        <p class="meta">{`Portions aren't scaled for ${data.people.length > 1 ? person.name : 'you'}. Turn scaling on in Settings.`}</p>
+      )}
+
       {plan.over >= 0.5 && (
         <p class="notice">{`These meals add up to ${formatKcal(plan.over)} over ${formatNumber(KCAL_MAX)} kcal. Try fewer meals or lighter picks.`}</p>
       )}

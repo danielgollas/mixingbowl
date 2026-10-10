@@ -218,6 +218,22 @@ function PersonEditor({ person, index }: { person: Person; index: number }) {
         })}
       </fieldset>
 
+      <label class="check scale-toggle">
+        <input
+          type="checkbox"
+          checked={person.scale}
+          onChange={() => updatePerson(person.id, { scale: !person.scale })}
+        />
+        <span class="check-text">
+          <span>Scale portions to targets</span>
+          <span class="meta">
+            {person.scale
+              ? 'Proteins, then beds, grow until the day reaches the targets.'
+              : 'One base portion of everything. Good for someone who also eats outside the plan.'}
+          </span>
+        </span>
+      </label>
+
       {canRemove &&
         (confirming ? (
           <div class="confirm" role="group" aria-label={`Remove ${person.name}?`}>

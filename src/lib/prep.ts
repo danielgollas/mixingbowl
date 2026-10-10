@@ -22,6 +22,8 @@ export interface PlanInput {
   menus: Menus;
   customMeals: CustomMeals;
   proteinMin: number | null;
+  /** False keeps every portion at one serving. */
+  scale: boolean;
 }
 
 export const planInput = ({ settings, menus, customMeals }: AppData, person: Person): PlanInput => ({
@@ -29,11 +31,12 @@ export const planInput = ({ settings, menus, customMeals }: AppData, person: Per
   menus,
   customMeals,
   proteinMin: proteinTarget(person.targetWeight, settings.unit)?.min ?? null,
+  scale: person.scale,
 });
 
 /** One program day's meals, scaled. */
 export function dayPlan(input: PlanInput, week: number, day: number, menu: WeekMenu = resolveMenu(input.menus, week)) {
-  return scaleDay(plannedMeals(menu, input.meals, day, input.customMeals), input.proteinMin);
+  return scaleDay(plannedMeals(menu, input.meals, day, input.customMeals), input.proteinMin, input.scale);
 }
 
 /** All seven days of a program week, scaled. */

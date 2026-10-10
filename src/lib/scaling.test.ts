@@ -84,6 +84,14 @@ describe('scaleDay', () => {
     expect(day.meals.every((m) => Object.values(m.servings).every((s) => s === 1))).toBe(true);
   });
 
+  it('keeps every portion at one serving when scaling is off, with nothing reported short or over', () => {
+    const day = scaleDay([snack('protein-fluff'), dinner('scramble-bowl')], 128, false);
+    for (const meal of day.meals) expect(Object.values(meal.servings).every((s) => s === 1)).toBe(true);
+    expect(day.shortBy).toEqual({ kcal: 0, protein: 0 });
+    expect(day.over).toBe(0);
+    expect(day.total.kcal).toBeCloseTo(mealNutrition(PRESETS['protein-fluff']).kcal + mealNutrition(PRESETS['scramble-bowl']).kcal, 5);
+  });
+
   it('gives each meal its scaled nutrition', () => {
     const day = scaleDay([snack('protein-fluff'), dinner('scramble-bowl')], null);
     expect(day.meals[1].nutrition).toEqual(mealNutrition(PRESETS['scramble-bowl'], day.meals[1].servings));

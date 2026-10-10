@@ -213,8 +213,8 @@ describe('Menu', () => {
 describe('People', () => {
   const household: Partial<AppData> = {
     people: [
-      { id: 'me', name: 'Me', targetWeight: 160, meals: ['snack', 'dinner'] },
-      { id: 'alex', name: 'Alex', targetWeight: null, meals: ['dinner'] },
+      { id: 'me', name: 'Me', targetWeight: 160, meals: ['snack', 'dinner'], scale: true },
+      { id: 'alex', name: 'Alex', targetWeight: null, meals: ['dinner'], scale: true },
     ],
   };
 
@@ -250,6 +250,20 @@ describe('People', () => {
     renderApp('#/menu', {}, household);
     expect(section('Snack').textContent).toContain('· Me');
     expect(section('Dinner').textContent).toContain('· Me, Alex');
+  });
+
+  it('turns off scaling for one person', () => {
+    renderApp('#/settings', {}, household);
+    const alex = within(screen.getByRole('article', { name: 'Alex' }));
+    fireEvent.click(alex.getByRole('checkbox', { name: /Scale portions to targets/ }));
+    expect(stored().people[1].scale).toBe(false);
+
+    navigate('#/today');
+    fireEvent.click(screen.getByLabelText('Alex'));
+    screen.getByText("Portions aren't scaled for Alex. Turn scaling on in Settings.");
+    const scramble = screen.getByRole('link', { name: 'Tofu scramble' }).parentElement!;
+    expect(scramble.textContent).toContain('150 g tofu');
+    expect(scramble.textContent).not.toContain('×');
   });
 
   it('asks before removing a person', () => {

@@ -96,7 +96,7 @@ describe('shoppingList', () => {
 });
 
 describe('weekPlan', () => {
-  const input: PlanInput = { meals: ['snack', 'dinner'], menus: {}, customMeals: {}, proteinMin: null };
+  const input: PlanInput = { meals: ['snack', 'dinner'], menus: {}, customMeals: {}, proteinMin: null, scale: true };
 
   it('plans seven days from the resolved menu', () => {
     const days = weekPlan(input, 1);
@@ -138,8 +138,8 @@ describe('householdTotals', () => {
   const data = {
     ...defaultData('2026-09-14'),
     people: [
-      { id: 'me', name: 'Me', targetWeight: 160, meals: ['snack', 'dinner'] as Slot[] },
-      { id: 'alex', name: 'Alex', targetWeight: null, meals: ['dinner'] as Slot[] },
+      { id: 'me', name: 'Me', targetWeight: 160, meals: ['snack', 'dinner'] as Slot[], scale: true },
+      { id: 'alex', name: 'Alex', targetWeight: null, meals: ['dinner'] as Slot[], scale: true },
     ],
   };
 
@@ -150,6 +150,13 @@ describe('householdTotals', () => {
     expect(totals.components.get('tofu-scramble')).toBeCloseTo(me + alex, 5);
     expect(totals.meals).toBe(21);
     expect(people[1].totals.components.get('protein-fluff')).toBeUndefined();
+  });
+
+  it('uses one base portion for a person with scaling off', () => {
+    const unscaledAlex = { ...data, people: [data.people[0], { ...data.people[1], scale: false }] };
+    const { people } = householdTotals(unscaledAlex, 1);
+    expect(people[1].totals.components.get('tofu-scramble')).toBe(4);
+    expect(people[1].totals.components.get('brown-rice')).toBe(7);
   });
 
   it('adds a share line per component only for more than one person', () => {
