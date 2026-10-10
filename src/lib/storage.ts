@@ -14,22 +14,35 @@ export interface StorageLike {
 
 export interface Settings {
   startDate: string;
-  targetWeight: number | null;
   unit: WeightUnit;
-  /** The meals you eat, in slot order. Never empty. */
+}
+
+export interface Person {
+  id: string;
+  name: string;
+  targetWeight: number | null;
+  /** The meals this person eats, in slot order. Never empty. */
   meals: Slot[];
 }
+
+export const MAX_PEOPLE = 8;
 
 export interface WeekChecks {
   prep: string[];
   shopping: string[];
 }
 
+export type EatenLog = Record<string, Slot[]>;
+
 export interface AppData {
-  version: 2;
+  version: 3;
   settings: Settings;
-  /** Eaten slots keyed by local date "YYYY-MM-DD". */
-  eaten: Record<string, Slot[]>;
+  /** Never empty. */
+  people: Person[];
+  /** Whose day Today shows. Always one of `people`. */
+  activePerson: string;
+  /** Per person id: eaten slots keyed by local date "YYYY-MM-DD". */
+  eaten: Record<string, EatenLog>;
   /** Menus keyed by program week number. */
   menus: Menus;
   customMeals: CustomMeals;
@@ -37,9 +50,18 @@ export interface AppData {
   checks: Record<string, WeekChecks>;
 }
 
+export const newPerson = (id: string, name: string): Person => ({
+  id,
+  name,
+  targetWeight: null,
+  meals: [...DEFAULT_MEALS],
+});
+
 export const defaultData = (today: string): AppData => ({
-  version: 2,
-  settings: { startDate: today, targetWeight: null, unit: 'lb', meals: [...DEFAULT_MEALS] },
+  version: 3,
+  settings: { startDate: today, unit: 'lb' },
+  people: [newPerson('me', 'Me')],
+  activePerson: 'me',
   eaten: {},
   menus: {},
   customMeals: {},
@@ -58,21 +80,39 @@ const stringsIn = (value: unknown): string[] =>
 
 function parseSettings(value: unknown, today: string): Settings {
   const s = isRecord(value) ? value : {};
-  const meals = slotsIn(s.meals);
   return {
     startDate: typeof s.startDate === 'string' && isIsoDate(s.startDate) ? s.startDate : today,
-    targetWeight:
-      typeof s.targetWeight === 'number' && Number.isFinite(s.targetWeight) && s.targetWeight > 0
-        ? s.targetWeight
-        : null,
     unit: s.unit === 'kg' ? 'kg' : 'lb',
+  };
+}
+
+function parsePerson(value: unknown, index: number): Person | null {
+  if (!isRecord(value) || typeof value.id !== 'string' || value.id === '') return null;
+  const meals = slotsIn(value.meals);
+  const name = typeof value.name === 'string' ? value.name.trim() : '';
+  const weight = value.targetWeight;
+  return {
+    id: value.id,
+    name: name || `Person ${index + 1}`,
+    targetWeight: typeof weight === 'number' && Number.isFinite(weight) && weight > 0 ? weight : null,
     meals: meals.length > 0 ? meals : [...DEFAULT_MEALS],
   };
 }
 
-function parseEaten(value: unknown): AppData['eaten'] {
+function parsePeople(value: unknown): Person[] {
+  if (!Array.isArray(value)) return [];
+  const people: Person[] = [];
+  for (const raw of value) {
+    if (people.length === MAX_PEOPLE) break;
+    const person = parsePerson(raw, people.length);
+    if (person && !people.some((p) => p.id === person.id)) people.push(person);
+  }
+  return people;
+}
+
+function parseEatenLog(value: unknown): EatenLog {
   if (!isRecord(value)) return {};
-  const eaten: AppData['eaten'] = {};
+  const eaten: EatenLog = {};
   for (const [date, slots] of Object.entries(value)) {
     const valid = slotsIn(slots);
     if (isIsoDate(date) && valid.length > 0) eaten[date] = valid;
@@ -131,7 +171,7 @@ function parseChecks(value: unknown): AppData['checks'] {
   return checks;
 }
 
-/** Reads saved data, upgrading version 1 and falling back to defaults for anything missing or invalid. Never throws. */
+/** Reads saved data, upgrading older versions and falling back to defaults for anything invalid. Never throws. */
 export function load(storage: StorageLike | null, today: string): AppData {
   let raw: unknown;
   try {
@@ -139,20 +179,36 @@ export function load(storage: StorageLike | null, today: string): AppData {
   } catch {
     return defaultData(today);
   }
-  if (!isRecord(raw) || (raw.version !== 1 && raw.version !== 2)) return defaultData(today);
+  if (!isRecord(raw) || ![1, 2, 3].includes(raw.version as number)) return defaultData(today);
   const settings = parseSettings(raw.settings, today);
-  const eaten = parseEaten(raw.eaten);
-  // Version 1 had a fixed plan: keep settings and eaten history; its shopping checks don't apply any more.
-  if (raw.version === 1) return { ...defaultData(today), settings, eaten };
-  const customMeals = parseCustomMeals(raw.customMeals);
-  return {
-    version: 2,
+  const customMeals = raw.version === 1 ? {} : parseCustomMeals(raw.customMeals);
+  const shared = {
+    version: 3 as const,
     settings,
-    eaten,
-    menus: parseMenus(raw.menus, customMeals),
+    // Version 1 had a fixed plan, so it has no menus, and its shopping checks don't apply any more.
+    menus: raw.version === 1 ? {} : parseMenus(raw.menus, customMeals),
     customMeals,
-    checks: parseChecks(raw.checks),
+    checks: raw.version === 1 ? {} : parseChecks(raw.checks),
   };
+
+  // Versions 1 and 2 had one person: their target weight, meals and eaten history move into "Me".
+  if (raw.version !== 3) {
+    const old = isRecord(raw.settings) ? raw.settings : {};
+    const me = parsePerson({ id: 'me', name: 'Me', targetWeight: old.targetWeight, meals: old.meals }, 0)!;
+    const log = parseEatenLog(raw.eaten);
+    return { ...shared, people: [me], activePerson: 'me', eaten: Object.keys(log).length > 0 ? { me: log } : {} };
+  }
+
+  const people = parsePeople(raw.people);
+  if (people.length === 0) people.push(newPerson('me', 'Me'));
+  const eatenRaw = isRecord(raw.eaten) ? raw.eaten : {};
+  const eaten: AppData['eaten'] = {};
+  for (const person of people) {
+    const log = parseEatenLog(eatenRaw[person.id]);
+    if (Object.keys(log).length > 0) eaten[person.id] = log;
+  }
+  const active = people.find((p) => p.id === raw.activePerson) ?? people[0];
+  return { ...shared, people, activePerson: active.id, eaten };
 }
 
 /** Returns false when there is no storage or the write fails (e.g. quota, private mode). */

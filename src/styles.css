@@ -307,7 +307,7 @@ a.prompt {
   accent-color: var(--accent);
 }
 
-.check input:checked + span {
+.list .check input:checked + span {
   color: var(--muted);
   text-decoration: line-through;
 }
@@ -650,7 +650,7 @@ a.prompt {
   gap: 0.1rem;
 }
 
-.check input:checked + .check-text {
+.list .check input:checked + .check-text {
   color: var(--muted);
   text-decoration: line-through;
 }
@@ -808,4 +808,232 @@ a.prompt {
 .segmented input:focus-visible + span {
   outline: 3px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* ---- People ---- */
+
+.people-switch {
+  display: flex;
+  flex-wrap: wrap;
+  justify-self: start;
+}
+
+.people-switch span {
+  min-height: 40px;
+}
+
+.person {
+  margin-top: 0.25rem;
+}
+
+.unit-field {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.unit-field legend,
+.meal-choices legend {
+  margin-bottom: 0.4rem;
+  padding: 0;
+  font-weight: 600;
+}
+
+.unit-field .segmented span {
+  min-height: 40px;
+}
+
+.unit-suffix {
+  align-self: center;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.field input[type='text'] {
+  min-height: 44px;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 1rem;
+}
+
+.confirm {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border-radius: 10px;
+  background: var(--warning-soft);
+  color: var(--warning);
+  font-weight: 600;
+}
+
+.button-secondary.danger {
+  border-color: var(--error);
+  color: var(--error);
+}
+
+.shares {
+  font-style: italic;
+}
+
+/* ---- Print ---- */
+
+.print-link {
+  justify-self: start;
+  display: inline-grid;
+  place-items: center;
+  text-decoration: none;
+}
+
+.print-page {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.print-section {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.print-section h3 {
+  margin: 0.5rem 0 0;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.print-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.print-table th,
+.print-table td {
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.print-table thead th {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.recipe {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.recipe h4 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.recipe .ingredients,
+.recipe .steps {
+  margin-top: 0.25rem;
+}
+
+.print-columns {
+  columns: 2 14rem;
+  column-gap: 1.5rem;
+}
+
+.print-columns .print-group {
+  break-inside: avoid;
+}
+
+.print-checklist {
+  margin: 0.25rem 0 0.75rem;
+  padding: 0;
+  list-style: none;
+  font-size: 0.9rem;
+}
+
+@media print {
+  :root {
+    color-scheme: light;
+    --bg: #fff;
+    --surface: #fff;
+    --text: #000;
+    --muted: #444;
+    --border: #ccc;
+  }
+
+  body {
+    background: #fff;
+    color: #000;
+    font-size: 11pt;
+  }
+
+  .tabbar,
+  .no-print {
+    display: none !important;
+  }
+
+  .app {
+    max-width: none;
+    padding: 0;
+  }
+
+  .recipe,
+  .print-table,
+  .print-group h3 {
+    break-inside: avoid;
+  }
+
+  .print-section h2 {
+    break-after: avoid;
+  }
+
+  .print-section + .print-section {
+    break-before: page;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+}
+
+/* ---- Fat, fiber, sugars ---- */
+
+.extras {
+  font-size: 0.8rem;
+}
+
+.extras-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  margin: 0;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.extras-grid dt {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.extras-grid dd {
+  display: grid;
+  margin: 0;
+}
+
+.extras-value {
+  font-size: 1.1rem;
+  font-weight: 700;
 }

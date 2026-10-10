@@ -9,6 +9,8 @@ const ROUTES: [string, Route][] = [
   ['#/prep/12', { name: 'prep', week: 12 }],
   ['#/shopping', { name: 'shopping', week: null }],
   ['#/shopping/1', { name: 'shopping', week: 1 }],
+  ['#/print', { name: 'print', week: null }],
+  ['#/print/4', { name: 'print', week: 4 }],
   ['#/components/crispy-tofu', { name: 'component', id: 'crispy-tofu' }],
   ['#/settings', { name: 'settings' }],
 ];

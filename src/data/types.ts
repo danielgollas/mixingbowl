@@ -25,6 +25,10 @@ export interface Food {
   name: string;
   kcalPer100g: number;
   proteinPer100g: number;
+  fatPer100g: number;
+  fiberPer100g: number;
+  /** Total sugars. */
+  sugarPer100g: number;
   category: FoodCategory;
   pack?: Pack;
   /** Grams of cooked food per gram dry, for foods entered cooked but bought dry. */
@@ -91,7 +95,8 @@ export interface MenuEntry {
 
 export type WeekMenu = Partial<Record<Slot, MenuEntry[]>>;
 
-export interface Nutrition {
-  kcal: number;
-  protein: number;
-}
+export const NUTRIENTS = ['kcal', 'protein', 'fat', 'fiber', 'sugar'] as const;
+export type Nutrient = (typeof NUTRIENTS)[number];
+
+/** kcal, and grams of everything else. */
+export type Nutrition = Record<Nutrient, number>;

@@ -9,12 +9,14 @@ Meals are prep-friendly bowls: a **bed** (rice, quinoa, noodles, lentils…), a 
 yuba, soy curls…), as many **veg** as you like, a **sauce** and a **topping**. Snacks are a separate short list.
 
 - **Today**: the meals you eat that day, scaled to your targets (protein first, then the bed), with eaten
-  toggles and calorie and protein totals.
-- **Menu**: per program week, choose the bowls and snacks for each meal you eat and how many days each one covers.
-  Swap any slot of a preset to make your own bowl.
-- **Prep**: one batch-prep list for the week, like "14 cups cooked brown rice" or "uses 4.5 blocks extra-firm tofu".
+  toggles, calorie and protein meters, and fat, fiber and sugars. With more than one person, switch whose day it is.
+- **Menu**: per program week, choose the bowls and snacks for each meal and how many days each one covers (up to
+  seven different items). Swap any slot of a preset to make your own bowl.
+- **Prep**: one batch-prep list for the whole household, like "14 cups cooked brown rice" or "uses 4.5 blocks
+  extra-firm tofu", with each person's share. **Print** turns the week into a cookbook: menu, batch recipes and
+  shopping list.
 - **Shopping**: the week's shopping list, rounded up to whole packs.
-- **Settings**: start date, which meals you eat, and target weight (lb or kg).
+- **Settings**: start date, weight unit, and the people you cook for, each with their own target weight and meals.
 
 Everything is saved in the browser's `localStorage`; there is no backend.
 

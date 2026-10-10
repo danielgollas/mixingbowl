@@ -10,8 +10,13 @@ function Probe() {
       <output data-testid="data">{JSON.stringify(state.data)}</output>
       <output data-testid="persistent">{String(state.persistent)}</output>
       <output data-testid="today">{state.today}</output>
-      <button onClick={() => state.toggleEaten('2026-09-14', 'lunch')}>lunch</button>
-      <button onClick={() => state.toggleEaten('2026-09-14', 'breakfast')}>breakfast</button>
+      <button onClick={() => state.toggleEaten('me', '2026-09-14', 'lunch')}>lunch</button>
+      <button onClick={() => state.toggleEaten('me', '2026-09-14', 'breakfast')}>breakfast</button>
+      <button onClick={() => state.addPerson()}>add person</button>
+      <button onClick={() => state.removePerson(state.data.people.at(-1)!.id)}>remove last</button>
+      <button onClick={() => state.setActivePerson(state.data.people.at(-1)!.id)}>activate last</button>
+      <button onClick={() => state.updatePerson('me', { name: 'Dan' })}>rename</button>
+      <output data-testid="person">{state.person.name}</output>
       <button onClick={() => state.toggleShopping(1, 'celery')}>celery</button>
       <button onClick={() => state.toggleShopping(2, 'celery')}>celery 2</button>
       <button onClick={() => state.clearShopping(1)}>clear</button>
@@ -22,7 +27,7 @@ function Probe() {
       >
         custom
       </button>
-      <button onClick={() => state.setSettings({ targetWeight: 160 })}>weight</button>
+      <button onClick={() => state.setSettings({ unit: 'kg' })}>weight</button>
     </div>
   );
 }
@@ -48,10 +53,25 @@ describe('AppStateProvider', () => {
     render(<AppStateProvider><Probe /></AppStateProvider>);
     click('lunch');
     click('breakfast');
-    expect(stored().eaten).toEqual({ '2026-09-14': ['breakfast', 'lunch'] });
+    expect(stored().eaten).toEqual({ me: { '2026-09-14': ['breakfast', 'lunch'] } });
     click('lunch');
     click('breakfast');
-    expect(stored().eaten).toEqual({});
+    expect(stored().eaten).toEqual({ me: {} });
+  });
+
+  it('adds, renames, switches to and removes people', () => {
+    render(<AppStateProvider><Probe /></AppStateProvider>);
+    click('add person');
+    expect(stored().people.map((p: { name: string }) => p.name)).toEqual(['Me', 'Person 2']);
+    click('activate last');
+    expect(screen.getByTestId('person').textContent).toBe('Person 2');
+    click('rename');
+    expect(stored().people[0].name).toBe('Dan');
+    click('remove last');
+    expect(stored().people).toHaveLength(1);
+    expect(stored().activePerson).toBe('me');
+    click('remove last');
+    expect(stored().people).toHaveLength(1);
   });
 
   it('toggles and clears shopping checks per week', () => {
@@ -79,7 +99,7 @@ describe('AppStateProvider', () => {
   it('merges settings changes', () => {
     render(<AppStateProvider><Probe /></AppStateProvider>);
     click('weight');
-    expect(stored().settings).toEqual({ startDate: '2026-09-14', targetWeight: 160, unit: 'lb', meals: ['snack', 'dinner'] });
+    expect(stored().settings).toEqual({ startDate: '2026-09-14', unit: 'kg' });
   });
 
   it('saves a change before the next frame, so closing the tab right away keeps it', async () => {
@@ -88,14 +108,14 @@ describe('AppStateProvider', () => {
     (screen.getByRole('button', { name: 'weight' }) as HTMLButtonElement).click();
     await Promise.resolve();
     await Promise.resolve();
-    expect(stored().settings.targetWeight).toBe(160);
+    expect(stored().settings.unit).toBe('kg');
   });
 
   it('keeps working in memory without storage', () => {
     render(<AppStateProvider storage={null}><Probe /></AppStateProvider>);
     expect(screen.getByTestId('persistent').textContent).toBe('false');
     click('weight');
-    expect(shown().settings.targetWeight).toBe(160);
+    expect(shown().settings.unit).toBe('kg');
     expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
   });
 
@@ -128,9 +148,9 @@ describe('AppStateProvider', () => {
 
   it('reloads saved data when the page becomes visible again', () => {
     render(<AppStateProvider><Probe /></AppStateProvider>);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...stored(), eaten: { '2026-09-14': ['snack'] } }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...stored(), eaten: { me: { '2026-09-14': ['snack'] } } }));
     fireEvent(document, new Event('visibilitychange'));
-    expect(shown().eaten).toEqual({ '2026-09-14': ['snack'] });
+    expect(shown().eaten).toEqual({ me: { '2026-09-14': ['snack'] } });
   });
 
   it('does not reload over changes it could not save', () => {
@@ -145,7 +165,7 @@ describe('AppStateProvider', () => {
     failing = true;
     click('weight');
     fireEvent(document, new Event('visibilitychange'));
-    expect(shown().settings.targetWeight).toBe(160);
+    expect(shown().settings.unit).toBe('kg');
   });
 
   it('picks up a new day when the page becomes visible again', () => {

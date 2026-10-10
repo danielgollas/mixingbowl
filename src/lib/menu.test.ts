@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_MENU } from '../data/meals';
 import type { Meal, MenuEntry } from '../data/types';
-import { entryDays, entryForDay, findMeal, plannedDays, plannedMeals, resolveEntries, resolveMenu } from './menu';
+import { addEntry, entryDays, entryForDay, findMeal, householdMeals, plannedDays, plannedMeals, resolveEntries, resolveMenu } from './menu';
 
 const entries: MenuEntry[] = [
   { mealId: 'scramble-bowl', days: 4 },
@@ -74,5 +74,43 @@ describe('plannedMeals', () => {
     ]);
     const day5 = plannedMeals(menu, ['snack', 'dinner'], 5, { 'custom-1': custom });
     expect(day5.map((m) => m.slot)).toEqual(['snack']);
+  });
+});
+
+describe('addEntry', () => {
+  it('fills the unplanned days', () => {
+    expect(addEntry(entries, 'seitan-soba-bowl').at(-1)).toEqual({ mealId: 'seitan-soba-bowl', days: 1 });
+    expect(addEntry([], 'seitan-soba-bowl')).toEqual([{ mealId: 'seitan-soba-bowl', days: 7 }]);
+  });
+
+  it('takes a day from the entry with the most days when the week is full', () => {
+    const full: MenuEntry[] = [
+      { mealId: 'a', days: 3 },
+      { mealId: 'b', days: 3 },
+      { mealId: 'c', days: 1 },
+    ];
+    expect(addEntry(full, 'd')).toEqual([
+      { mealId: 'a', days: 3 },
+      { mealId: 'b', days: 2 },
+      { mealId: 'c', days: 1 },
+      { mealId: 'd', days: 1 },
+    ]);
+  });
+
+  it('allows up to seven different items', () => {
+    let list: MenuEntry[] = [{ mealId: 'a', days: 7 }];
+    for (const id of ['b', 'c', 'd', 'e', 'f', 'g', 'h']) list = addEntry(list, id);
+    expect(list.map((e) => e.days)).toEqual([1, 1, 1, 1, 1, 1, 1]);
+    expect(list.map((e) => e.mealId)).toEqual(['a', 'b', 'c', 'd', 'e', 'f', 'g']);
+  });
+});
+
+describe('householdMeals', () => {
+  it('lists every meal anyone eats, in slot order', () => {
+    expect(householdMeals([{ meals: ['dinner'] }, { meals: ['snack', 'dinner'] }, { meals: ['breakfast'] }])).toEqual([
+      'breakfast',
+      'snack',
+      'dinner',
+    ]);
   });
 });

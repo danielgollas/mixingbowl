@@ -10,15 +10,15 @@ import { hrefFor } from '../router';
 import { useAppState } from '../state';
 
 export function Today() {
-  const { data, today, toggleEaten } = useAppState();
+  const { data, today, person, toggleEaten, setActivePerson } = useAppState();
   const { settings } = data;
   const position = programPosition(settings.startDate, today);
-  const plan = dayPlan(planInput(data), position.week, position.day);
-  const eatenSlots = position.started ? (data.eaten[today] ?? []) : [];
+  const plan = dayPlan(planInput(data, person), position.week, position.day);
+  const eatenSlots = position.started ? (data.eaten[person.id]?.[today] ?? []) : [];
   const eaten = plan.meals
     .filter((m) => eatenSlots.includes(m.slot))
     .reduce((sum, m) => addNutrition(sum, m.nutrition), ZERO);
-  const target = proteinTarget(settings.targetWeight, settings.unit);
+  const target = proteinTarget(person.targetWeight, settings.unit);
 
   return (
     <>
@@ -29,6 +29,24 @@ export function Today() {
         </h1>
       </header>
 
+      {data.people.length > 1 && (
+        <fieldset class="segmented people-switch">
+          <legend class="visually-hidden">Whose day</legend>
+          {data.people.map((p) => (
+            <label key={p.id}>
+              <input
+                type="radio"
+                name="person"
+                value={p.id}
+                checked={p.id === person.id}
+                onChange={() => setActivePerson(p.id)}
+              />
+              <span>{p.name}</span>
+            </label>
+          ))}
+        </fieldset>
+      )}
+
       {!position.started && (
         <p class="notice">
           Program starts in {position.daysUntilStart} {position.daysUntilStart === 1 ? 'day' : 'days'}. Here's a
@@ -38,7 +56,8 @@ export function Today() {
 
       {target === null && (
         <a class="card prompt" href="#/settings">
-          Set your target weight to see your protein target <span aria-hidden="true">→</span>
+          {data.people.length > 1 ? `Set ${person.name}'s target weight` : 'Set your target weight'} to see the
+          protein target <span aria-hidden="true">→</span>
         </a>
       )}
 
@@ -55,7 +74,7 @@ export function Today() {
       )}
 
       <section class="meals" aria-label="Meals">
-        {settings.meals.map((slot) => {
+        {person.meals.map((slot) => {
           const scaled = plan.meals.find((m) => m.slot === slot);
           if (!scaled) {
             return (
@@ -74,7 +93,7 @@ export function Today() {
               scaled={scaled}
               eaten={eatenSlots.includes(slot)}
               disabled={!position.started}
-              onToggle={() => toggleEaten(today, slot)}
+              onToggle={() => toggleEaten(person.id, today, slot)}
             />
           );
         })}

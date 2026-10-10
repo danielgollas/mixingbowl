@@ -1,6 +1,6 @@
 import { COMPONENTS } from '../data/components';
 import { SLOT_LABELS } from '../data/meals';
-import { formatGrams, formatKcal, formatQuantity } from '../lib/format';
+import { formatExtras, formatGrams, formatKcal, formatQuantity } from '../lib/format';
 import { formatPortion } from '../lib/prep';
 import type { ScaledMeal } from '../lib/scaling';
 import { hrefFor } from '../router';
@@ -20,6 +20,7 @@ export function MealCard({ scaled, eaten, disabled, onToggle }: Props) {
         <p class="eyebrow">{SLOT_LABELS[slot]}</p>
         <h2 class="meal-name">{meal.name}</h2>
         <p class="meta">{`${formatKcal(nutrition.kcal)} · ${formatGrams(nutrition.protein)} protein`}</p>
+        <p class="meta extras">{formatExtras(nutrition)}</p>
         <ul class="parts">
           {meal.parts.map((id) => {
             const component = COMPONENTS[id];

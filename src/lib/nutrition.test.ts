@@ -8,10 +8,13 @@ describe('foodNutrition', () => {
     const n = foodNutrition('tofu-firm', 150);
     expect(n.kcal).toBeCloseTo(216, 5);
     expect(n.protein).toBeCloseTo(25.95, 5);
+    expect(n.fat).toBeCloseTo(13.05, 5);
+    expect(n.fiber).toBeCloseTo(3.45, 5);
+    expect(n.sugar).toBeCloseTo(0.9, 5);
   });
 
   it('is zero for "to taste" ingredients', () => {
-    expect(foodNutrition('garlic-powder', 0)).toEqual({ kcal: 0, protein: 0 });
+    expect(foodNutrition('garlic-powder', 0)).toEqual({ kcal: 0, protein: 0, fat: 0, fiber: 0, sugar: 0 });
   });
 
   it('throws on an unknown food, including inherited object keys', () => {
@@ -22,8 +25,8 @@ describe('foodNutrition', () => {
 
 describe('componentNutrition', () => {
   const foods: Record<string, Food> = {
-    bean: { id: 'bean', name: 'Bean', kcalPer100g: 100, proteinPer100g: 10, category: 'Proteins' },
-    leaf: { id: 'leaf', name: 'Leaf', kcalPer100g: 20, proteinPer100g: 2, category: 'Produce' },
+    bean: { id: 'bean', name: 'Bean', kcalPer100g: 100, proteinPer100g: 10, fatPer100g: 4, fiberPer100g: 6, sugarPer100g: 1, category: 'Proteins' },
+    leaf: { id: 'leaf', name: 'Leaf', kcalPer100g: 20, proteinPer100g: 2, fatPer100g: 0, fiberPer100g: 3, sugarPer100g: 2, category: 'Produce' },
   };
   const base: Omit<Component, 'id' | 'name' | 'ingredients' | 'uses'> = {
     role: 'veg',
@@ -47,6 +50,9 @@ describe('componentNutrition', () => {
     const n = componentNutrition('plate', components, foods);
     expect(n.kcal).toBeCloseTo(40 + 2 * 50, 5);
     expect(n.protein).toBeCloseTo(4 + 2 * 5, 5);
+    expect(n.fat).toBeCloseTo(0 + 2 * 2, 5);
+    expect(n.fiber).toBeCloseTo(6 + 2 * 3, 5);
+    expect(n.sugar).toBeCloseTo(4 + 2 * 0.5, 5);
   });
 
   it('makes a combo bed the average of its two beds', () => {

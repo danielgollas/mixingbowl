@@ -1,13 +1,13 @@
 import { WeekHeader, useWeek } from '../components/WeekHeader';
-import { planInput, prepList, weekPlan, weekTotals } from '../lib/prep';
+import { householdTotals, prepList } from '../lib/prep';
 import { hrefFor } from '../router';
 import { useAppState } from '../state';
 
 export function Prep({ week: routeWeek }: { week: number | null }) {
   const { data, togglePrep } = useAppState();
   const week = useWeek(routeWeek);
-  const totals = weekTotals(weekPlan(planInput(data), week));
-  const groups = prepList(totals);
+  const { totals, people } = householdTotals(data, week);
+  const groups = prepList(totals, people);
   const checked = data.checks[week]?.prep ?? [];
   const lines = groups.flatMap((g) => g.lines);
   const done = lines.filter((line) => checked.includes(line.id)).length;
@@ -15,9 +15,12 @@ export function Prep({ week: routeWeek }: { week: number | null }) {
   return (
     <>
       <WeekHeader page="prep" title="Prep" week={week} />
+      <a class="button-secondary print-link" href={hrefFor({ name: 'print', week })}>
+        Print this week's recipes
+      </a>
       <p class="meta">
         {lines.length > 0
-          ? `Batch prep for ${totals.meals} meals · ${done} of ${lines.length} done`
+          ? `Batch prep for ${totals.meals} meals${people.length > 1 ? ` for ${people.length} people` : ''} · ${done} of ${lines.length} done`
           : 'Nothing planned this week yet.'}
       </p>
 
@@ -32,6 +35,7 @@ export function Prep({ week: routeWeek }: { week: number | null }) {
                   <span class="check-text">
                     <span class="list-title">{line.name}</span>
                     <span class="meta">{[line.amount, ...line.details].join(' · ')}</span>
+                    {line.shares && <span class="meta shares">{line.shares}</span>}
                   </span>
                 </label>
                 <a class="row-link" href={hrefFor({ name: 'component', id: line.id })} aria-label={`${line.name} recipe`}>

@@ -63,10 +63,19 @@ export function ComponentDetail({ id }: { id: string }) {
           <span class="stat-value">{formatNumber(nutrition.kcal)}</span>
           <span class="stat-label">kcal</span>
         </div>
-        <div>
-          <span class="stat-value">{`${formatNumber(nutrition.protein)} g`}</span>
-          <span class="stat-label">protein</span>
-        </div>
+        {(
+          [
+            ['protein', nutrition.protein],
+            ['fat', nutrition.fat],
+            ['fiber', nutrition.fiber],
+            ['sugars', nutrition.sugar],
+          ] as const
+        ).map(([label, value]) => (
+          <div key={label}>
+            <span class="stat-value">{`${formatNumber(value)} g`}</span>
+            <span class="stat-label">{label}</span>
+          </div>
+        ))}
         <p class="meta stats-note">{`Per portion: ${formatPortion(component.portion, 1)}.`}</p>
         {briefDiffers && (
           <p class="meta stats-note">

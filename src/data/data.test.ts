@@ -13,6 +13,17 @@ describe('foods and components', () => {
     expect(duplicates(PRESET_MEALS.map((m) => m.id))).toEqual([]);
   });
 
+  it('gives every food non-negative nutrients, with fat, fiber and sugar never above the total weight', () => {
+    for (const food of FOOD_LIST) {
+      for (const value of [food.kcalPer100g, food.proteinPer100g, food.fatPer100g, food.fiberPer100g, food.sugarPer100g]) {
+        expect(value, food.id).toBeGreaterThanOrEqual(0);
+      }
+      expect(food.proteinPer100g + food.fatPer100g + food.fiberPer100g + food.sugarPer100g, food.id).toBeLessThanOrEqual(100);
+      // Fat alone can't supply more energy than the food has (9 kcal/g), allowing for rounding in the estimates.
+      expect(food.fatPer100g * 9, food.id).toBeLessThanOrEqual(food.kcalPer100g * 1.05 + 1);
+    }
+  });
+
   it('references only existing foods and components', () => {
     for (const component of COMPONENT_LIST) {
       for (const ingredient of component.ingredients) {

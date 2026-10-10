@@ -20,6 +20,23 @@ export function TotalsBar({ eaten, planned, target }: Props) {
         range={{ min: KCAL_MIN, max: KCAL_MAX }}
       />
       <Meter label="Protein" unit="g" eaten={eaten.protein} planned={planned.protein} range={target} />
+      <dl class="extras-grid">
+        {(
+          [
+            ['Fat', 'fat'],
+            ['Fiber', 'fiber'],
+            ['Sugars', 'sugar'],
+          ] as const
+        ).map(([label, key]) => (
+          <div key={key}>
+            <dt>{label}</dt>
+            <dd>
+              <span class="extras-value">{`${formatNumber(planned[key])} g`}</span>
+              <span class="meta">{`${formatNumber(eaten[key])} g eaten`}</span>
+            </dd>
+          </div>
+        ))}
+      </dl>
     </section>
   );
 }

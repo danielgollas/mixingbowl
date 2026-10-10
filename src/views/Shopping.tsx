@@ -1,11 +1,11 @@
 import { WeekHeader, useWeek } from '../components/WeekHeader';
-import { planInput, shoppingList, weekPlan, weekTotals } from '../lib/prep';
+import { householdTotals, shoppingList } from '../lib/prep';
 import { useAppState } from '../state';
 
 export function Shopping({ week: routeWeek }: { week: number | null }) {
   const { data, toggleShopping, clearShopping } = useAppState();
   const week = useWeek(routeWeek);
-  const groups = shoppingList(weekTotals(weekPlan(planInput(data), week)));
+  const groups = shoppingList(householdTotals(data, week).totals);
   const checkedIds = data.checks[week]?.shopping ?? [];
   const lines = groups.flatMap((g) => g.lines);
   const checked = lines.filter((line) => checkedIds.includes(line.id)).length;

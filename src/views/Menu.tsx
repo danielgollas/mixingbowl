@@ -3,8 +3,8 @@ import { WeekHeader, useWeek } from '../components/WeekHeader';
 import { COMPONENT_LIST } from '../data/components';
 import { PRESET_MEALS, SLOT_KIND, SLOT_LABELS, getPreset, partsWithRole } from '../data/meals';
 import type { ComponentId, Meal, MenuEntry, Role, Slot } from '../data/types';
-import { formatGrams, formatKcal } from '../lib/format';
-import { entryDays, findMeal, plannedDays, resolveEntries } from '../lib/menu';
+import { formatExtras, formatGrams, formatKcal } from '../lib/format';
+import { addEntry, entryDays, findMeal, householdMeals, plannedDays, resolveEntries } from '../lib/menu';
 import { mealNutrition } from '../lib/nutrition';
 import { hrefFor } from '../router';
 import { useAppState } from '../state';
@@ -20,11 +20,11 @@ export function Menu({ week: routeWeek }: { week: number | null }) {
   return (
     <>
       <WeekHeader page="menu" title="Menu" week={week} />
-      {data.settings.meals.map((slot) => (
+      {householdMeals(data.people).map((slot) => (
         <MenuSection key={slot} week={week} slot={slot} />
       ))}
       <p class="meta">
-        Change which meals you eat in <a href={hrefFor({ name: 'settings' })}>Settings</a>. A new week starts with the
+        Change who eats which meals in <a href={hrefFor({ name: 'settings' })}>Settings</a>. A new week starts with the
         previous week's menu.
       </p>
     </>
@@ -38,7 +38,15 @@ function MenuSection({ week, slot }: { week: number; slot: Slot }) {
   const kind = SLOT_KIND[slot];
   const label = SLOT_LABELS[slot];
   const headingId = `menu-${slot}`;
+  const eaters =
+    data.people.length > 1
+      ? ` · ${data.people
+          .filter((p) => p.meals.includes(slot))
+          .map((p) => p.name)
+          .join(', ')}`
+      : '';
 
+  const canAdd = remaining > 0 || entries.some((e) => e.days > 1);
   const update = (next: MenuEntry[]) => setMenu(week, slot, next);
   const setDays = (index: number, days: number) =>
     update(entries.map((entry, i) => (i === index ? { ...entry, days } : entry)));
@@ -66,7 +74,7 @@ function MenuSection({ week, slot }: { week: number; slot: Slot }) {
     <section class="group" aria-labelledby={headingId}>
       <div class="title-row">
         <h2 id={headingId}>{label}</h2>
-        <span class="meta">{`${7 - remaining} of 7 days`}</span>
+        <span class="meta">{`${7 - remaining} of 7 days${eaters}`}</span>
       </div>
       {remaining > 0 && <p class="warning">{`${remaining} ${remaining === 1 ? 'day' : 'days'} unplanned`}</p>}
 
@@ -94,20 +102,23 @@ function MenuSection({ week, slot }: { week: number; slot: Slot }) {
         id={`add-${slot}`}
         class="add-select"
         value=""
-        disabled={remaining === 0}
+        disabled={!canAdd}
         onChange={(e) => {
           const mealId = e.currentTarget.value;
           e.currentTarget.value = '';
-          if (mealId) update([...entries, { mealId, days: remaining }]);
+          if (mealId) update(addEntry(entries, mealId));
         }}
       >
-        <option value="">{remaining === 0 ? 'All 7 days planned' : `+ Add a ${kind}`}</option>
+        <option value="">{canAdd ? `+ Add a ${kind}` : 'Every day has its own item'}</option>
         {options.map((meal) => (
           <option key={meal.id} value={meal.id}>
             {meal.name}
           </option>
         ))}
       </select>
+      {canAdd && remaining === 0 && (
+        <p class="meta">Adding another takes a day from the item with the most days.</p>
+      )}
     </section>
   );
 }
@@ -133,6 +144,7 @@ function MenuItem({ meal, entry, range, canGrow, onDays, onRemove, onEdit }: Ite
         <div class="entry-body">
           <h3 class="entry-name">{meal.name}</h3>
           <p class="meta">{`${days} · ${formatKcal(nutrition.kcal)} · ${formatGrams(nutrition.protein)} protein`}</p>
+          <p class="meta extras">{formatExtras(nutrition)}</p>
         </div>
         <div class="stepper" role="group" aria-label={`Days of ${meal.name}`}>
           <button

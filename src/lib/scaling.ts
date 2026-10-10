@@ -1,6 +1,6 @@
 import { getComponent } from '../data/components';
 import type { ComponentId, Meal, Nutrition, Role, Slot } from '../data/types';
-import { ZERO, addNutrition, componentNutrition, mealNutrition } from './nutrition';
+import { ZERO, addNutrition, componentNutrition, mealNutrition, scaleNutrition } from './nutrition';
 import { KCAL_MAX, KCAL_MIN } from './targets';
 
 export const STEP = 0.5;
@@ -22,7 +22,7 @@ export interface ScaledDay {
   meals: ScaledMeal[];
   total: Nutrition;
   /** What's still missing after scaling (zero when met). */
-  shortBy: Nutrition;
+  shortBy: { kcal: number; protein: number };
   /** How far the unscaled day is already over the kcal ceiling. */
   over: number;
 }
@@ -55,7 +55,7 @@ export function scaleDay(planned: PlannedMeal[], proteinMin: number | null): Sca
         meal: index,
         part,
         role,
-        step: { kcal: one.kcal * STEP, protein: one.protein * STEP },
+        step: scaleNutrition(one, STEP),
         steps: 0,
         maxSteps: max / STEP,
       });

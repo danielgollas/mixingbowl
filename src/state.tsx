@@ -8,6 +8,9 @@ import {
   load,
   save,
   type AppData,
+  MAX_PEOPLE,
+  newPerson,
+  type Person,
   type Settings,
   type StorageLike,
   type WeekChecks,
@@ -19,8 +22,14 @@ export interface AppState {
   today: string;
   /** False when changes can't be saved in this browser. */
   persistent: boolean;
-  toggleEaten(date: string, slot: Slot): void;
+  /** The person Today shows. */
+  person: Person;
+  toggleEaten(personId: string, date: string, slot: Slot): void;
   setSettings(changes: Partial<Settings>): void;
+  updatePerson(id: string, changes: Partial<Omit<Person, 'id'>>): void;
+  addPerson(): void;
+  removePerson(id: string): void;
+  setActivePerson(id: string): void;
   /** Replaces one meal's entries for a program week. */
   setMenu(week: number, slot: Slot, entries: MenuEntry[]): void;
   /** Adds or replaces one of your own bowls. */
@@ -82,16 +91,34 @@ export function AppStateProvider({ children, storage }: ProviderProps) {
       data,
       today,
       persistent,
-      toggleEaten: (date, slot) =>
+      person: data.people.find((p) => p.id === data.activePerson) ?? data.people[0],
+      toggleEaten: (personId, date, slot) =>
         setData((d) => {
-          const current = d.eaten[date] ?? [];
+          const log = d.eaten[personId] ?? {};
+          const current = log[date] ?? [];
           const next = SLOTS.filter((s) => (s === slot ? !current.includes(s) : current.includes(s)));
-          const eaten = { ...d.eaten };
-          if (next.length > 0) eaten[date] = next;
-          else delete eaten[date];
-          return { ...d, eaten };
+          const updated = { ...log };
+          if (next.length > 0) updated[date] = next;
+          else delete updated[date];
+          return { ...d, eaten: { ...d.eaten, [personId]: updated } };
         }),
       setSettings: (changes) => setData((d) => ({ ...d, settings: { ...d.settings, ...changes } })),
+      updatePerson: (id, changes) =>
+        setData((d) => ({ ...d, people: d.people.map((p) => (p.id === id ? { ...p, ...changes } : p)) })),
+      addPerson: () =>
+        setData((d) => {
+          if (d.people.length >= MAX_PEOPLE) return d;
+          const id = `person-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+          return { ...d, people: [...d.people, newPerson(id, `Person ${d.people.length + 1}`)] };
+        }),
+      removePerson: (id) =>
+        setData((d) => {
+          if (d.people.length <= 1) return d;
+          const people = d.people.filter((p) => p.id !== id);
+          const { [id]: _removed, ...eaten } = d.eaten;
+          return { ...d, people, eaten, activePerson: d.activePerson === id ? people[0].id : d.activePerson };
+        }),
+      setActivePerson: (id) => setData((d) => (d.people.some((p) => p.id === id) ? { ...d, activePerson: id } : d)),
       setMenu: (week, slot, entries) =>
         setData((d) => ({ ...d, menus: { ...d.menus, [week]: { ...d.menus[week], [slot]: entries } } })),
       saveCustomMeal: (meal) => setData((d) => ({ ...d, customMeals: { ...d.customMeals, [meal.id]: meal } })),

@@ -1,7 +1,7 @@
 import type { JSX } from 'preact';
 import { hrefFor, type Route } from '../router';
 
-type Page = Exclude<Route, { name: 'component' }>['name'];
+type Page = 'today' | 'menu' | 'prep' | 'shopping' | 'settings';
 
 const TABS: { page: Page; label: string; icon: JSX.Element }[] = [
   {
@@ -62,7 +62,7 @@ const tabHref = (page: Page): string =>
   page === 'menu' || page === 'prep' || page === 'shopping' ? hrefFor({ name: page, week: null }) : hrefFor({ name: page });
 
 export function TabBar({ route }: { route: Route }) {
-  const current: Page | null = route.name === 'component' ? null : route.name;
+  const current: Page | null = route.name === 'component' ? null : route.name === 'print' ? 'prep' : route.name;
   return (
     <nav class="tabbar" aria-label="Main">
       {TABS.map((tab) => (

@@ -14,7 +14,7 @@ import {
 import { formatDecimal, formatNumber, formatQuantity, formatWeight } from './format';
 import { resolveMenu, plannedMeals, type CustomMeals, type Menus } from './menu';
 import { scaleDay, type ScaledDay } from './scaling';
-import type { AppData } from './storage';
+import type { AppData, Person } from './storage';
 import { proteinTarget } from './targets';
 
 export interface PlanInput {
@@ -24,11 +24,11 @@ export interface PlanInput {
   proteinMin: number | null;
 }
 
-export const planInput = ({ settings, menus, customMeals }: AppData): PlanInput => ({
-  meals: settings.meals,
+export const planInput = ({ settings, menus, customMeals }: AppData, person: Person): PlanInput => ({
+  meals: person.meals,
   menus,
   customMeals,
-  proteinMin: proteinTarget(settings.targetWeight, settings.unit)?.min ?? null,
+  proteinMin: proteinTarget(person.targetWeight, settings.unit)?.min ?? null,
 });
 
 /** One program day's meals, scaled. */
@@ -69,6 +69,25 @@ export function weekTotals(days: ScaledDay[]): WeekTotals {
   return totals;
 }
 
+export interface PersonTotals {
+  person: Person;
+  totals: WeekTotals;
+}
+
+export interface HouseholdTotals {
+  totals: WeekTotals;
+  people: PersonTotals[];
+}
+
+/** Everyone's scaled week, added up, plus each person's own totals. */
+export function householdTotals(data: AppData, week: number): HouseholdTotals {
+  const plans = data.people.map((person) => ({ person, days: weekPlan(planInput(data, person), week) }));
+  return {
+    totals: weekTotals(plans.flatMap((p) => p.days)),
+    people: plans.map(({ person, days }) => ({ person, totals: weekTotals(days) })),
+  };
+}
+
 /** "225 g tofu", "1½ cups cooked", "¼ head". */
 export function formatPortion(portion: Portion, servings: number): string {
   const value = portion.amount * servings;
@@ -90,6 +109,8 @@ export interface PrepLine {
   name: string;
   amount: string;
   details: string[];
+  /** Each person's share, when prepping for more than one person. */
+  shares: string | null;
 }
 
 export interface PrepGroup {
@@ -99,7 +120,14 @@ export interface PrepGroup {
 }
 
 /** One line per component you actually make (combo beds fold into the beds they're built from). */
-export function prepList(totals: WeekTotals): PrepGroup[] {
+export function prepList(totals: WeekTotals, people: PersonTotals[] = []): PrepGroup[] {
+  const sharesFor = (id: ComponentId, portion: Portion): string | null =>
+    people.length < 2
+      ? null
+      : people
+          .filter((p) => (p.totals.components.get(id) ?? 0) > 0)
+          .map((p) => `${p.person.name} ${formatPortion(portion, p.totals.components.get(id)!)}`)
+          .join(' · ');
   return ROLES.map((role) => ({
     role,
     title: ROLE_TITLES[role],
@@ -120,7 +148,13 @@ export function prepList(totals: WeekTotals): PrepGroup[] {
           const count = `${formatDecimal(uses)} ${uses <= 1 ? pack.unit : pack.units}`;
           details.push(what.includes(pack.unit) ? `uses ${count}` : `uses ${count} ${what}`);
         }
-        return { id: component.id, name: component.name, amount: formatPortion(component.portion, servings), details };
+        return {
+          id: component.id,
+          name: component.name,
+          amount: formatPortion(component.portion, servings),
+          details,
+          shares: sharesFor(component.id, component.portion),
+        };
       }),
   })).filter((group) => group.lines.length > 0);
 }

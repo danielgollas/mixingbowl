@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/preact';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './app';
-import { STORAGE_KEY, defaultData, type AppData, type Settings } from './lib/storage';
+import { STORAGE_KEY, defaultData, type AppData, type Person, type Settings } from './lib/storage';
 
 const TODAY = '2026-09-14';
 
@@ -10,9 +10,16 @@ beforeEach(() => {
   vi.setSystemTime(new Date(2026, 8, 14, 12));
 });
 
-function renderApp(hash: string, settings: Partial<Settings> = {}, extra: Partial<AppData> = {}) {
+/** Settings fields go to the shared settings; person fields go to the first person, "Me". */
+function renderApp(
+  hash: string,
+  overrides: Partial<Settings> & Partial<Omit<Person, 'id'>> = {},
+  extra: Partial<AppData> = {},
+) {
+  const { startDate, unit, ...person } = overrides;
   const data = { ...defaultData(TODAY), ...extra };
-  data.settings = { ...data.settings, ...settings };
+  data.settings = { ...data.settings, ...(startDate && { startDate }), ...(unit && { unit }) };
+  if (!extra.people) data.people = [{ ...data.people[0], ...person }];
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   // replaceState doesn't fire hashchange, so the router reads this on first render.
   history.replaceState(null, '', hash);
@@ -72,7 +79,7 @@ describe('Today', () => {
     const toggle = screen.getByRole('button', { name: 'Protein Fluff eaten' });
     fireEvent.click(toggle);
     expect(toggle.getAttribute('aria-pressed')).toBe('true');
-    expect(stored().eaten).toEqual({ [TODAY]: ['snack'] });
+    expect(stored().eaten).toEqual({ me: { [TODAY]: ['snack'] } });
     expect(screen.getByRole('region', { name: 'Daily totals' }).textContent).toContain('156 kcal eaten');
   });
 
@@ -131,7 +138,27 @@ describe('Menu', () => {
 
     fireEvent.change(dinner.getByLabelText('Add to dinner'), { target: { value: 'seitan-soba-bowl' } });
     expect(stored().menus[1].dinner!.at(-1)).toEqual({ mealId: 'seitan-soba-bowl', days: 2 });
-    expect((dinner.getByLabelText('Add to dinner') as HTMLSelectElement).disabled).toBe(true);
+  });
+
+  it('adds more variations to a full week by taking a day from the item with the most days', () => {
+    renderApp('#/menu');
+    const dinner = within(section('Dinner'));
+    dinner.getByText(/takes a day from the item with the most days/);
+    fireEvent.change(dinner.getByLabelText('Add to dinner'), { target: { value: 'seitan-soba-bowl' } });
+    fireEvent.change(dinner.getByLabelText('Add to dinner'), { target: { value: 'yuba-noodle-bowl' } });
+    expect(stored().menus[1].dinner).toEqual([
+      { mealId: 'scramble-bowl', days: 3 },
+      { mealId: 'crispy-tofu-bowl', days: 2 },
+      { mealId: 'seitan-soba-bowl', days: 1 },
+      { mealId: 'yuba-noodle-bowl', days: 1 },
+    ]);
+    expect(section('Dinner').textContent).toContain('Day 7');
+  });
+
+  it('stops adding once every day has its own item', () => {
+    const seven = Array.from({ length: 7 }, (_, i) => ({ mealId: i % 2 ? 'scramble-bowl' : 'seitan-soba-bowl', days: 1 }));
+    renderApp('#/menu', {}, { menus: { 1: { dinner: seven } } });
+    expect((screen.getByLabelText('Add to dinner') as HTMLSelectElement).disabled).toBe(true);
   });
 
   it('only offers bowls for dinner and snacks for snack', () => {
@@ -180,6 +207,91 @@ describe('Menu', () => {
     navigate(screen.getByRole('link', { name: 'Next week' }).getAttribute('href')!);
     screen.getByText('Week 2');
     expect(section('Snack').textContent).toContain('3 days unplanned');
+  });
+});
+
+describe('People', () => {
+  const household: Partial<AppData> = {
+    people: [
+      { id: 'me', name: 'Me', targetWeight: 160, meals: ['snack', 'dinner'] },
+      { id: 'alex', name: 'Alex', targetWeight: null, meals: ['dinner'] },
+    ],
+  };
+
+  it('adds a person in Settings with their own weight and meals', () => {
+    renderApp('#/settings');
+    fireEvent.click(screen.getByRole('button', { name: 'Add person' }));
+    const alex = within(screen.getByRole('article', { name: 'Person 2' }));
+    fireEvent.input(alex.getByLabelText('Name'), { target: { value: 'Alex' } });
+    fireEvent.input(alex.getByLabelText('Target weight'), { target: { value: '130' } });
+    fireEvent.click(alex.getByRole('checkbox', { name: /Snack/ }));
+    expect(stored().people[1]).toMatchObject({ name: 'Alex', targetWeight: 130, meals: ['dinner'] });
+  });
+
+  it('switches whose day Today shows and keeps eaten separate', () => {
+    renderApp('#/today', {}, household);
+    expect(screen.getAllByRole('button', { name: /eaten$/ })).toHaveLength(2);
+    fireEvent.click(screen.getByLabelText('Alex'));
+    expect(stored().activePerson).toBe('alex');
+    expect(screen.getAllByRole('button', { name: /eaten$/ })).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Scramble Bowl eaten' }));
+    expect(stored().eaten).toEqual({ alex: { [TODAY]: ['dinner'] } });
+    screen.getByRole('link', { name: /Set Alex's target weight/ });
+  });
+
+  it('adds everyone up on Prep and shows each person’s share', () => {
+    renderApp('#/prep', {}, household);
+    screen.getByText(/for 2 people/);
+    const scramble = screen.getByRole('checkbox', { name: /Tofu scramble/ }).closest('li')!;
+    expect(scramble.textContent).toMatch(/Me [\d,]+ g tofu · Alex [\d,]+ g tofu/);
+  });
+
+  it('shows who eats each meal on the Menu', () => {
+    renderApp('#/menu', {}, household);
+    expect(section('Snack').textContent).toContain('· Me');
+    expect(section('Dinner').textContent).toContain('· Me, Alex');
+  });
+
+  it('asks before removing a person', () => {
+    renderApp('#/settings', {}, household);
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Alex…' }));
+    expect(stored().people).toHaveLength(2);
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Alex…' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Alex' }));
+    expect(stored().people.map((p) => p.name)).toEqual(['Me']);
+    expect(screen.queryByRole('button', { name: /^Remove Me/ })).toBeNull();
+  });
+});
+
+describe('Nutrients', () => {
+  it('shows fat, fiber and sugars for the day and each meal', () => {
+    renderApp('#/today');
+    const totals = screen.getByRole('region', { name: 'Daily totals' });
+    for (const label of ['Fat', 'Fiber', 'Sugars']) within(totals).getByText(label);
+    expect(screen.getAllByText(/g fat · \d+ g fiber · \d+ g sugars/).length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('lists them on recipe pages', () => {
+    renderApp('#/components/lentils');
+    const stats = screen.getByRole('region', { name: 'Nutrition estimate' });
+    for (const label of ['protein', 'fat', 'fiber', 'sugars']) within(stats).getByText(label);
+  });
+});
+
+describe('Print', () => {
+  it('lays out the week’s menu, batch recipes and shopping list', () => {
+    renderApp('#/prep');
+    navigate(screen.getByRole('link', { name: "Print this week's recipes" }).getAttribute('href')!);
+    expect(heading()).toBe('Week 1 recipes');
+    const rows = screen.getAllByRole('row');
+    expect(rows).toHaveLength(8);
+    expect(rows[1].textContent).toContain('Protein Fluff');
+    expect(rows[1].textContent).toContain('Scramble Bowl');
+    screen.getByRole('heading', { name: 'Tofu scramble' });
+    expect(screen.getAllByText(/g extra-firm tofu \([\d.]+ blocks\)/).length).toBeGreaterThan(0);
+    screen.getByRole('heading', { name: 'Shopping list' });
+    expect(screen.getByRole('navigation', { name: 'Main' }).querySelector('[aria-current]')?.textContent).toBe('Prep');
   });
 });
 
@@ -249,18 +361,19 @@ describe('Settings', () => {
     expect(screen.queryByText('Enter a weight between 80 and 600 lb.')).toBeNull(); // no error mid-typing
     fireEvent.blur(input);
     screen.getByText('Enter a weight between 80 and 600 lb.');
-    expect(stored().settings.targetWeight).toBeNull();
+    expect(stored().people[0].targetWeight).toBeNull();
 
     fireEvent.input(input, { target: { value: '160' } });
     expect(screen.queryByText('Enter a weight between 80 and 600 lb.')).toBeNull();
-    expect(stored().settings.targetWeight).toBe(160);
+    expect(stored().people[0].targetWeight).toBe(160);
     screen.getByText('128–160 g protein per day');
   });
 
   it('converts the weight when switching units', () => {
     renderApp('#/settings', { targetWeight: 160 });
     fireEvent.click(screen.getByLabelText('kg'));
-    expect(stored().settings).toMatchObject({ unit: 'kg', targetWeight: 72.6 });
+    expect(stored().settings.unit).toBe('kg');
+    expect(stored().people[0].targetWeight).toBe(72.6);
     expect((screen.getByLabelText('Target weight') as HTMLInputElement).value).toBe('72.6');
   });
 
@@ -270,7 +383,7 @@ describe('Settings', () => {
     // Number inputs report unparseable text (e.g. "72,5") as value "" with validity.badInput set.
     Object.defineProperty(input, 'validity', { configurable: true, value: { badInput: true } });
     fireEvent.input(input, { target: { value: '' } });
-    expect(stored().settings.targetWeight).toBe(160);
+    expect(stored().people[0].targetWeight).toBe(160);
     fireEvent.blur(input);
     screen.getByText('Enter a weight between 80 and 600 lb.');
   });
@@ -285,10 +398,10 @@ describe('Settings', () => {
   it('chooses which meals you eat, keeping at least one', () => {
     renderApp('#/settings');
     fireEvent.click(screen.getByRole('checkbox', { name: /Lunch/ }));
-    expect(stored().settings.meals).toEqual(['lunch', 'snack', 'dinner']);
+    expect(stored().people[0].meals).toEqual(['lunch', 'snack', 'dinner']);
     fireEvent.click(screen.getByRole('checkbox', { name: /Snack/ }));
     fireEvent.click(screen.getByRole('checkbox', { name: /Lunch/ }));
-    expect(stored().settings.meals).toEqual(['dinner']);
+    expect(stored().people[0].meals).toEqual(['dinner']);
     expect((screen.getByRole('checkbox', { name: /Dinner/ }) as HTMLInputElement).disabled).toBe(true);
   });
 

@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { PRESETS } from '../data/meals';
-import type { Meal } from '../data/types';
+import type { Meal, Slot } from '../data/types';
 import { formatQuantity, formatWeight } from './format';
-import { formatPortion, packsToBuy, prepList, shoppingList, weekPlan, weekTotals, type PlanInput } from './prep';
+import { formatPortion, householdTotals, packsToBuy, prepList, shoppingList, weekPlan, weekTotals, type PlanInput } from './prep';
+import { defaultData } from './storage';
 import { scaleDay, type ScaledDay } from './scaling';
 
 const day = (...meals: Meal[]): ScaledDay =>
@@ -130,5 +131,32 @@ describe('formatting', () => {
     expect(formatWeight(424)).toBe('420 g');
     expect(formatWeight(3)).toBe('10 g');
     expect(formatWeight(1234)).toBe('1.2 kg');
+  });
+});
+
+describe('householdTotals', () => {
+  const data = {
+    ...defaultData('2026-09-14'),
+    people: [
+      { id: 'me', name: 'Me', targetWeight: 160, meals: ['snack', 'dinner'] as Slot[] },
+      { id: 'alex', name: 'Alex', targetWeight: null, meals: ['dinner'] as Slot[] },
+    ],
+  };
+
+  it('adds each person’s own scaled week', () => {
+    const { totals, people } = householdTotals(data, 1);
+    const me = people[0].totals.components.get('tofu-scramble')!;
+    const alex = people[1].totals.components.get('tofu-scramble')!;
+    expect(totals.components.get('tofu-scramble')).toBeCloseTo(me + alex, 5);
+    expect(totals.meals).toBe(21);
+    expect(people[1].totals.components.get('protein-fluff')).toBeUndefined();
+  });
+
+  it('adds a share line per component only for more than one person', () => {
+    const { totals, people } = householdTotals(data, 1);
+    const shared = line(prepList(totals, people), 'protein-fluff');
+    expect(shared?.shares).toBe('Me 4 servings');
+    expect(line(prepList(totals, people), 'tofu-scramble')?.shares).toMatch(/^Me [\d,]+ g tofu · Alex [\d,]+ g tofu$/);
+    expect(line(prepList(totals, people.slice(0, 1)), 'tofu-scramble')?.shares).toBeNull();
   });
 });

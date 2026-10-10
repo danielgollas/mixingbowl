@@ -4,6 +4,10 @@ export const formatNumber = (value: number): string => whole.format(value);
 export const formatKcal = (kcal: number): string => `${whole.format(kcal)} kcal`;
 export const formatGrams = (grams: number): string => `${whole.format(grams)} g`;
 
+/** "14 g fat · 9 g fiber · 6 g sugars" */
+export const formatExtras = (n: { fat: number; fiber: number; sugar: number }): string =>
+  `${formatGrams(n.fat)} fat · ${formatGrams(n.fiber)} fiber · ${formatGrams(n.sugar)} sugars`;
+
 function toLocalDate(iso: string): Date {
   const [year, month, day] = iso.split('-').map(Number);
   return new Date(year, month - 1, day);

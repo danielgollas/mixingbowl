@@ -1,5 +1,5 @@
 import { DEFAULT_MENU, getPreset } from '../data/meals';
-import type { Meal, MealId, MenuEntry, Slot, WeekMenu } from '../data/types';
+import { SLOTS, type Meal, type MealId, type MenuEntry, type Slot, type WeekMenu } from '../data/types';
 import type { PlannedMeal } from './scaling';
 
 /** Saved menus keyed by program week number. */
@@ -52,4 +52,21 @@ export function plannedMeals(menu: WeekMenu, slots: readonly Slot[], day: number
     if (meal) meals.push({ slot, meal });
   }
   return meals;
+}
+
+/** Every meal that at least one person eats, in slot order. */
+export const householdMeals = (people: readonly { meals: readonly Slot[] }[]): Slot[] =>
+  SLOTS.filter((slot) => people.some((p) => p.meals.includes(slot)));
+
+/**
+ * Adds a meal to a week's entries. It takes the unplanned days; when every day is planned, it takes one day from
+ * the entry with the most days (the last of them on a tie). Returns the entries unchanged if no day can be freed.
+ */
+export function addEntry(entries: MenuEntry[], mealId: MealId): MenuEntry[] {
+  const remaining = 7 - plannedDays(entries);
+  if (remaining > 0) return [...entries, { mealId, days: remaining }];
+  const most = Math.max(...entries.map((e) => e.days));
+  if (most <= 1) return entries;
+  const donor = entries.map((e) => e.days).lastIndexOf(most);
+  return [...entries.map((e, i) => (i === donor ? { ...e, days: e.days - 1 } : e)), { mealId, days: 1 }];
 }

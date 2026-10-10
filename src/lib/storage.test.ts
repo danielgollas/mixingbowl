@@ -23,8 +23,10 @@ describe('load', () => {
   it('returns defaults starting today when nothing is stored', () => {
     expect(load(new MemoryStorage(), TODAY)).toEqual(defaultData(TODAY));
     expect(defaultData(TODAY)).toEqual({
-      version: 2,
-      settings: { startDate: TODAY, targetWeight: null, unit: 'lb', meals: ['snack', 'dinner'] },
+      version: 3,
+      settings: { startDate: TODAY, unit: 'lb' },
+      people: [{ id: 'me', name: 'Me', targetWeight: null, meals: ['snack', 'dinner'] }],
+      activePerson: 'me',
       eaten: {},
       menus: {},
       customMeals: {},
@@ -34,7 +36,7 @@ describe('load', () => {
 
   it('returns defaults for corrupt JSON, unknown versions, or no storage', () => {
     expect(load(storageWith('{not json'), TODAY)).toEqual(defaultData(TODAY));
-    expect(load(storageWith({ version: 3 }), TODAY)).toEqual(defaultData(TODAY));
+    expect(load(storageWith({ version: 4 }), TODAY)).toEqual(defaultData(TODAY));
     expect(load(storageWith([]), TODAY)).toEqual(defaultData(TODAY));
     expect(load(null, TODAY)).toEqual(defaultData(TODAY));
   });
@@ -49,7 +51,7 @@ describe('load', () => {
     expect(load(throwing, TODAY)).toEqual(defaultData(TODAY));
   });
 
-  it('upgrades version 1, keeping settings and eaten history and dropping shopping checks', () => {
+  it('upgrades version 1 into one person, keeping settings and eaten history and dropping shopping checks', () => {
     const data = load(
       storageWith({
         version: 1,
@@ -61,12 +63,64 @@ describe('load', () => {
     );
     expect(data).toEqual({
       ...defaultData(TODAY),
-      settings: { startDate: '2026-09-01', targetWeight: 160, unit: 'lb', meals: ['snack', 'dinner'] },
-      eaten: { '2026-09-02': ['breakfast', 'dinner'] },
+      settings: { startDate: '2026-09-01', unit: 'lb' },
+      people: [{ id: 'me', name: 'Me', targetWeight: 160, meals: ['snack', 'dinner'] }],
+      eaten: { me: { '2026-09-02': ['breakfast', 'dinner'] } },
     });
   });
 
-  it('repairs invalid settings and eaten entries one at a time', () => {
+  it('upgrades version 2 into one person, keeping menus, custom bowls and checks', () => {
+    const data = load(
+      storageWith({
+        version: 2,
+        settings: { startDate: '2026-09-01', targetWeight: 72.5, unit: 'kg', meals: ['lunch', 'dinner'] },
+        eaten: { '2026-09-02': ['lunch'] },
+        menus: { '2': { dinner: [{ mealId: 'custom-a', days: 7 }] } },
+        customMeals: { 'custom-a': { name: 'Mine', kind: 'bowl', parts: ['quinoa', 'seitan'] } },
+        checks: { '2': { prep: ['quinoa'], shopping: [] } },
+      }),
+      TODAY,
+    );
+    expect(data).toEqual({
+      version: 3,
+      settings: { startDate: '2026-09-01', unit: 'kg' },
+      people: [{ id: 'me', name: 'Me', targetWeight: 72.5, meals: ['lunch', 'dinner'] }],
+      activePerson: 'me',
+      eaten: { me: { '2026-09-02': ['lunch'] } },
+      menus: { '2': { dinner: [{ mealId: 'custom-a', days: 7 }] } },
+      customMeals: { 'custom-a': { id: 'custom-a', name: 'Mine', kind: 'bowl', parts: ['quinoa', 'seitan'] } },
+      checks: { '2': { prep: ['quinoa'], shopping: [] } },
+    });
+  });
+
+  it('repairs people one at a time', () => {
+    const data = load(
+      storageWith({
+        version: 3,
+        people: [
+          { id: 'a', name: '  Ana ', targetWeight: 140, meals: ['dinner'] },
+          { id: 'a', name: 'Duplicate' },
+          { name: 'No id' },
+          { id: 'b', name: ' ', targetWeight: -3, meals: ['brunch'] },
+        ],
+        activePerson: 'gone',
+        eaten: { a: { '2026-09-02': ['dinner'] }, gone: { '2026-09-02': ['dinner'] }, b: 'x' },
+      }),
+      TODAY,
+    );
+    expect(data.people).toEqual([
+      { id: 'a', name: 'Ana', targetWeight: 140, meals: ['dinner'] },
+      { id: 'b', name: 'Person 2', targetWeight: null, meals: ['snack', 'dinner'] },
+    ]);
+    expect(data.activePerson).toBe('a');
+    expect(data.eaten).toEqual({ a: { '2026-09-02': ['dinner'] } });
+  });
+
+  it('falls back to one default person when none are valid', () => {
+    expect(load(storageWith({ version: 3, people: [] }), TODAY).people).toEqual(defaultData(TODAY).people);
+  });
+
+  it('repairs invalid settings and eaten entries', () => {
     const data = load(
       storageWith({
         version: 2,
@@ -75,19 +129,15 @@ describe('load', () => {
       }),
       TODAY,
     );
-    expect(data.settings).toEqual({ startDate: TODAY, targetWeight: null, unit: 'lb', meals: ['lunch', 'dinner'] });
-    expect(data.eaten).toEqual({ '2026-09-02': ['breakfast'] });
-  });
-
-  it('falls back to snack and dinner when no valid meals are saved', () => {
-    const data = load(storageWith({ version: 2, settings: { meals: [] } }), TODAY);
-    expect(data.settings.meals).toEqual(['snack', 'dinner']);
+    expect(data.settings).toEqual({ startDate: TODAY, unit: 'lb' });
+    expect(data.people[0]).toEqual({ id: 'me', name: 'Me', targetWeight: null, meals: ['lunch', 'dinner'] });
+    expect(data.eaten).toEqual({ me: { '2026-09-02': ['breakfast'] } });
   });
 
   it('keeps valid custom bowls and drops invalid ones', () => {
     const data = load(
       storageWith({
-        version: 2,
+        version: 3,
         customMeals: {
           'custom-a': { name: 'Mine', kind: 'bowl', parts: ['quinoa', 'seitan', 'nori'] },
           'custom-b': { name: 'No protein', kind: 'bowl', parts: ['quinoa'] },
@@ -105,7 +155,7 @@ describe('load', () => {
   it('drops menu entries that are unknown, the wrong kind, badly counted or past 7 days', () => {
     const data = load(
       storageWith({
-        version: 2,
+        version: 3,
         customMeals: { 'custom-a': { name: 'Mine', kind: 'bowl', parts: ['quinoa', 'seitan'] } },
         menus: {
           '2': {
@@ -137,7 +187,7 @@ describe('load', () => {
 
   it('keeps checks per week as unique strings', () => {
     const data = load(
-      storageWith({ version: 2, checks: { '1': { prep: ['brown-rice', 'brown-rice', 3], shopping: 'x' }, x: {} } }),
+      storageWith({ version: 3, checks: { '1': { prep: ['brown-rice', 'brown-rice', 3], shopping: 'x' }, x: {} } }),
       TODAY,
     );
     expect(data.checks).toEqual({ '1': { prep: ['brown-rice'], shopping: [] } });
@@ -149,8 +199,13 @@ describe('save', () => {
     const storage = new MemoryStorage();
     const data: AppData = {
       ...defaultData('2026-09-01'),
-      settings: { startDate: '2026-09-01', targetWeight: 160, unit: 'lb', meals: ['lunch', 'dinner'] },
-      eaten: { '2026-09-14': ['lunch'] },
+      settings: { startDate: '2026-09-01', unit: 'lb' },
+      people: [
+        { id: 'me', name: 'Me', targetWeight: 160, meals: ['lunch', 'dinner'] },
+        { id: 'p2', name: 'Alex', targetWeight: null, meals: ['dinner'] },
+      ],
+      activePerson: 'p2',
+      eaten: { me: { '2026-09-14': ['lunch'] } },
       menus: { '3': { lunch: [{ mealId: 'custom-a', days: 7 }] } },
       customMeals: { 'custom-a': { id: 'custom-a', name: 'Mine', kind: 'bowl', parts: ['soba', 'yuba', 'nori'] } },
       checks: { '3': { prep: ['soba'], shopping: ['yuba'] } },

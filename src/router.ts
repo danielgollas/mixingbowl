@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 
 /** Pages that show one program week; `week` is null for the current week. */
-export type WeekPage = 'menu' | 'prep' | 'shopping';
+export type WeekPage = 'menu' | 'prep' | 'shopping' | 'print';
 
 export type Route =
   | { name: 'today' }
@@ -9,7 +9,7 @@ export type Route =
   | { name: 'component'; id: string }
   | { name: 'settings' };
 
-const WEEK_PAGES: readonly string[] = ['menu', 'prep', 'shopping'] satisfies WeekPage[];
+const WEEK_PAGES: readonly string[] = ['menu', 'prep', 'shopping', 'print'] satisfies WeekPage[];
 
 export const DEFAULT_ROUTE: Route = { name: 'today' };
 
@@ -40,6 +40,7 @@ export function hrefFor(route: Route): string {
     case 'menu':
     case 'prep':
     case 'shopping':
+    case 'print':
       return route.week === null ? `#/${route.name}` : `#/${route.name}/${route.week}`;
     default:
       return `#/${route.name}`;

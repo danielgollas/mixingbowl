@@ -1,18 +1,27 @@
 import { COMPONENTS } from '../data/components';
 import { FOODS } from '../data/foods';
-import type { Component, ComponentId, Food, FoodId, Meal, Nutrition } from '../data/types';
+import { NUTRIENTS, type Component, type ComponentId, type Food, type FoodId, type Meal, type Nutrition } from '../data/types';
 
-export const ZERO: Nutrition = { kcal: 0, protein: 0 };
+export const ZERO: Nutrition = { kcal: 0, protein: 0, fat: 0, fiber: 0, sugar: 0 };
 
-export const addNutrition = (a: Nutrition, b: Nutrition, times = 1): Nutrition => ({
-  kcal: a.kcal + b.kcal * times,
-  protein: a.protein + b.protein * times,
-});
+const combine = (fn: (nutrient: (typeof NUTRIENTS)[number]) => number): Nutrition =>
+  Object.fromEntries(NUTRIENTS.map((n) => [n, fn(n)])) as Nutrition;
+
+export const addNutrition = (a: Nutrition, b: Nutrition, times = 1): Nutrition => combine((n) => a[n] + b[n] * times);
+
+export const scaleNutrition = (a: Nutrition, times: number): Nutrition => combine((n) => a[n] * times);
 
 export function foodNutrition(foodId: FoodId, grams: number, foods: Record<FoodId, Food> = FOODS): Nutrition {
   const food = Object.hasOwn(foods, foodId) ? foods[foodId] : undefined;
   if (!food) throw new Error(`Unknown food: ${foodId}`);
-  return { kcal: (food.kcalPer100g * grams) / 100, protein: (food.proteinPer100g * grams) / 100 };
+  const per = grams / 100;
+  return {
+    kcal: food.kcalPer100g * per,
+    protein: food.proteinPer100g * per,
+    fat: food.fatPer100g * per,
+    fiber: food.fiberPer100g * per,
+    sugar: food.sugarPer100g * per,
+  };
 }
 
 /** One portion of a component, including the components it uses. */
