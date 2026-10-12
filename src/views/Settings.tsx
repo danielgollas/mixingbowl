@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
+import { CloudSyncCard } from '../components/CloudSyncCard';
 import { SLOT_KIND, SLOT_LABELS } from '../data/meals';
 import { SLOTS, type Slot } from '../data/types';
 import { formatNumber } from '../lib/format';
@@ -20,7 +21,7 @@ const UNITS: WeightUnit[] = ['lb', 'kg'];
 const parseWeight = (value: string): number | null => (value.trim() === '' ? null : Number(value));
 
 export function Settings() {
-  const { data, persistent, setSettings, updatePerson, addPerson } = useAppState();
+  const { data, persistent, sync, setSettings, updatePerson, addPerson } = useAppState();
   const { settings, people } = data;
 
   // A cleared or half-typed date comes through as "" or an invalid date; keep the saved one until it's valid.
@@ -78,6 +79,8 @@ export function Settings() {
         </fieldset>
       </section>
 
+      <CloudSyncCard />
+
       <section class="group" aria-labelledby="people-title">
         <h2 id="people-title">People</h2>
         <p class="meta">
@@ -100,7 +103,7 @@ export function Settings() {
       <section class="card" aria-labelledby="about-title">
         <h2 id="about-title">About the numbers</h2>
         <p class="meta">
-          {`Daily calorie range: ${formatNumber(KCAL_MIN)}–${formatNumber(KCAL_MAX)} kcal. Bowl proteins grow first, then beds, in half portions until the day reaches the person's targets, without going over ${formatNumber(KCAL_MAX)} kcal. Calories and protein are estimated from approximate USDA values and will differ from your product labels. A new day starts at 4am, so late-night eating counts toward the evening before. Everything you save stays in this browser.`}
+          {`Daily calorie range: ${formatNumber(KCAL_MIN)}–${formatNumber(KCAL_MAX)} kcal. Bowl proteins grow first, then beds, in half portions until the day reaches the person's targets, without going over ${formatNumber(KCAL_MAX)} kcal. Calories and protein are estimated from approximate USDA values and will differ from your product labels. A new day starts at 4am, so late-night eating counts toward the evening before. ${sync.status === 'off' ? 'Everything you save stays in this browser.' : 'Everything you save stays in this browser, and in your own iCloud when you sign in.'}`}
         </p>
       </section>
     </>

@@ -18,7 +18,8 @@ yuba, soy curls…), as many **veg** as you like, a **sauce** and a **topping**.
 - **Shopping**: the week's shopping list, rounded up to whole packs.
 - **Settings**: start date, weight unit, and the people you cook for, each with their own target weight and meals.
 
-Everything is saved in the browser's `localStorage`; there is no backend.
+Everything is saved in the browser's `localStorage`; there is no backend. Optionally, **iCloud sync** keeps the plan
+in your own private iCloud database (CloudKit JS), so you can sign in with your Apple ID on any device.
 
 ## Development
 
@@ -34,12 +35,34 @@ npm run preview   # serve dist/ at http://localhost:4173/mixingbowl/
 
 Pushes to `main` run the tests, build, and deploy to GitHub Pages via `.github/workflows/deploy.yml`.
 
+## iCloud sync setup
+
+Sync is off until the build has a CloudKit container and web API token.
+
+1. [developer.apple.com](https://developer.apple.com/account/resources/identifiers/list/cloudContainer) →
+   Identifiers → iCloud Containers → **+**, e.g. `iCloud.io.github.danielgollas.mixingbowl`.
+2. [CloudKit Console](https://icloud.developer.apple.com/) → the container → **Schema** (Development) → Record Types →
+   **+** `AppData` with one field `json` of type **String**. Then **Deploy Schema Changes…** to Production.
+3. CloudKit Console → **Tokens & Keys** (API Access) → new **API Token**: Sign In Callback **Post Message**,
+   Allowed Origins `https://danielgollas.github.io` (add `http://localhost:5173` for development).
+4. Repository variables (Settings → Secrets and variables → Actions → Variables), then re-run the deploy:
+   ```sh
+   gh variable set CLOUDKIT_CONTAINER --body iCloud.io.github.danielgollas.mixingbowl
+   gh variable set CLOUDKIT_API_TOKEN --body <token>
+   gh variable set CLOUDKIT_ENVIRONMENT --body production
+   ```
+   Locally, put the same values in `.env.local` as `VITE_CLOUDKIT_CONTAINER`, `VITE_CLOUDKIT_API_TOKEN` and
+   `VITE_CLOUDKIT_ENVIRONMENT` (use `development` to test against the development database).
+
+The token is meant to be public: CloudKit web tokens only work from the allowed origins, and each user only reaches
+their own private database.
+
 ## Data
 
 - Foods, components (beds, proteins, veg, sauces, toppings, snacks) and preset meals live in `src/data/`.
 - Calories and protein come from approximate USDA FoodData Central values per 100 g
   (`src/data/foods.ts`). They are estimates and will differ from product labels.
 - Components marked "From the brief" follow its recipes and sauces; the rest were added for bowl variety.
-- Design notes: [`docs/superpowers/specs/`](docs/superpowers/specs/) (the original app, then the bowl builder).
+- Design notes: [`docs/superpowers/specs/`](docs/superpowers/specs/) (the original app, the bowl builder, households, iCloud sync).
 
 *This is for informational purposes only. For medical advice or diagnosis, consult a professional.*

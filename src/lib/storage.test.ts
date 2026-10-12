@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { STORAGE_KEY, defaultData, load, save, type AppData, type StorageLike } from './storage';
+import { STORAGE_KEY, defaultData, load, parseData, save, type AppData, type StorageLike } from './storage';
 
 class MemoryStorage implements StorageLike {
   values = new Map<string, string>();
@@ -231,5 +231,15 @@ describe('save', () => {
     };
     expect(save(full, defaultData(TODAY))).toBe(false);
     expect(save(null, defaultData(TODAY))).toBe(false);
+  });
+});
+
+describe('parseData', () => {
+  it('reads saved JSON, and returns null for anything that is not data this version can read', () => {
+    const data = defaultData(TODAY);
+    expect(parseData(JSON.stringify(data), TODAY)).toEqual(data);
+    expect(parseData(null, TODAY)).toBeNull();
+    expect(parseData('{oops', TODAY)).toBeNull();
+    expect(parseData(JSON.stringify({ ...data, version: 4 }), TODAY)).toBeNull();
   });
 });

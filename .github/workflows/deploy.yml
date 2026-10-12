@@ -26,6 +26,11 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+        env:
+          # iCloud sync is off until these repository variables are set. The CloudKit web token is public by design.
+          VITE_CLOUDKIT_CONTAINER: ${{ vars.CLOUDKIT_CONTAINER }}
+          VITE_CLOUDKIT_API_TOKEN: ${{ vars.CLOUDKIT_API_TOKEN }}
+          VITE_CLOUDKIT_ENVIRONMENT: ${{ vars.CLOUDKIT_ENVIRONMENT }}
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:

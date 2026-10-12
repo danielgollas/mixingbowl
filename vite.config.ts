@@ -8,5 +8,7 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
+    // Tests never talk to iCloud, even when .env.local has CloudKit settings.
+    env: { VITE_CLOUDKIT_CONTAINER: '', VITE_CLOUDKIT_API_TOKEN: '' },
   },
 });

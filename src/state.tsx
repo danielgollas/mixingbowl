@@ -2,6 +2,7 @@ import { createContext, type ComponentChildren } from 'preact';
 import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { SLOTS, type Meal, type MenuEntry, type Slot } from './data/types';
 import { today as currentDate } from './lib/clock';
+import { cloudConfig, cloudKitConnector } from './lib/cloudkit';
 import {
   STORAGE_KEY,
   browserStorage,
@@ -15,6 +16,8 @@ import {
   type StorageLike,
   type WeekChecks,
 } from './lib/storage';
+import type { CloudConnector } from './lib/sync';
+import { useCloudSync, type CloudSync } from './useCloudSync';
 
 export interface AppState {
   data: AppData;
@@ -24,6 +27,8 @@ export interface AppState {
   persistent: boolean;
   /** The person Today shows. */
   person: Person;
+  /** iCloud sync; status 'off' when this build has no iCloud settings. */
+  sync: CloudSync;
   toggleEaten(personId: string, date: string, slot: Slot): void;
   setSettings(changes: Partial<Settings>): void;
   updatePerson(id: string, changes: Partial<Omit<Person, 'id'>>): void;
@@ -47,14 +52,23 @@ interface ProviderProps {
   children: ComponentChildren;
   /** Defaults to the browser's localStorage; pass null to run in memory only. */
   storage?: StorageLike | null;
+  /** Defaults to CloudKit when the build has iCloud settings; pass null to turn sync off. */
+  cloud?: CloudConnector | null;
+  /** How long after a change to push it, in ms. */
+  syncDelay?: number;
 }
 
-export function AppStateProvider({ children, storage }: ProviderProps) {
+const config = cloudConfig();
+const DEFAULT_CLOUD = config ? cloudKitConnector(config) : null;
+
+export function AppStateProvider({ children, storage, cloud, syncDelay }: ProviderProps) {
   const [store] = useState(() => (storage === undefined ? browserStorage() : storage));
+  const [connect] = useState(() => (cloud === undefined ? DEFAULT_CLOUD : cloud));
   const [today, setToday] = useState(() => currentDate());
   const [data, setData] = useState(() => load(store, currentDate()));
   const [persistent, setPersistent] = useState(store !== null);
   const lastSaveOk = useRef(false);
+  const sync = useCloudSync({ connect, storage: store, data, replace: setData, delay: syncDelay });
 
   // Layout effects run right after the render instead of after the next frame, so a change is saved even if
   // the tab closes immediately. Runs on the first render too, so a first launch saves its default start date.
@@ -92,6 +106,7 @@ export function AppStateProvider({ children, storage }: ProviderProps) {
       today,
       persistent,
       person: data.people.find((p) => p.id === data.activePerson) ?? data.people[0],
+      sync,
       toggleEaten: (personId, date, slot) =>
         setData((d) => {
           const log = d.eaten[personId] ?? {};
@@ -127,7 +142,7 @@ export function AppStateProvider({ children, storage }: ProviderProps) {
         setData((d) => updateChecks(d, week, (c) => ({ ...c, shopping: toggleIn(c.shopping, id) }))),
       clearShopping: (week) => setData((d) => updateChecks(d, week, (c) => ({ ...c, shopping: [] }))),
     }),
-    [data, today, persistent],
+    [data, today, persistent, sync],
   );
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;

@@ -1041,3 +1041,15 @@ a.prompt {
 .scale-toggle {
   padding-inline: 0;
 }
+
+/* Apple draws its Sign in with Apple ID / Sign out button inside; it sizes itself to this box. */
+.apple-button {
+  width: 100%;
+  max-width: 280px;
+  height: 44px;
+  cursor: pointer;
+}
+
+.cloud-sync [role='status'] {
+  font-weight: 600;
+}

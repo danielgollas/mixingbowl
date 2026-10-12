@@ -175,15 +175,29 @@ function parseChecks(value: unknown): AppData['checks'] {
   return checks;
 }
 
-/** Reads saved data, upgrading older versions and falling back to defaults for anything invalid. Never throws. */
+/** Reads saved data, falling back to defaults for anything invalid. Never throws. */
 export function load(storage: StorageLike | null, today: string): AppData {
+  let json: string | null = null;
+  try {
+    json = storage?.getItem(STORAGE_KEY) ?? null;
+  } catch {
+    // Unreadable storage reads as empty.
+  }
+  return parseData(json, today) ?? defaultData(today);
+}
+
+/**
+ * Reads data saved as JSON, upgrading older versions and repairing invalid parts. Returns null when it isn't
+ * Mixing Bowl data this version can read: missing, malformed, or from a newer version. Never throws.
+ */
+export function parseData(json: string | null, today: string): AppData | null {
   let raw: unknown;
   try {
-    raw = JSON.parse(storage?.getItem(STORAGE_KEY) ?? 'null');
+    raw = JSON.parse(json ?? 'null');
   } catch {
-    return defaultData(today);
+    return null;
   }
-  if (!isRecord(raw) || ![1, 2, 3].includes(raw.version as number)) return defaultData(today);
+  if (!isRecord(raw) || ![1, 2, 3].includes(raw.version as number)) return null;
   const settings = parseSettings(raw.settings, today);
   const customMeals = raw.version === 1 ? {} : parseCustomMeals(raw.customMeals);
   const shared = {

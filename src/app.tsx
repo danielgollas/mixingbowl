@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'preact/hooks';
 import { TabBar } from './components/TabBar';
 import type { StorageLike } from './lib/storage';
+import type { CloudConnector } from './lib/sync';
 import { hrefFor, useHashRoute, type Route } from './router';
 import { AppStateProvider } from './state';
 import { ComponentDetail } from './views/ComponentDetail';
@@ -11,9 +12,15 @@ import { Settings } from './views/Settings';
 import { Shopping } from './views/Shopping';
 import { Today } from './views/Today';
 
-export function App({ storage }: { storage?: StorageLike | null }) {
+interface AppProps {
+  storage?: StorageLike | null;
+  cloud?: CloudConnector | null;
+  syncDelay?: number;
+}
+
+export function App({ storage, cloud, syncDelay }: AppProps) {
   return (
-    <AppStateProvider storage={storage}>
+    <AppStateProvider storage={storage} cloud={cloud} syncDelay={syncDelay}>
       <Shell />
     </AppStateProvider>
   );
