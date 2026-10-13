@@ -10,7 +10,7 @@
 |---|---|
 | Service | CloudKit JS (`https://cdn.apple-cloudkit.com/ck/2/cloudkit.js`), loaded only when sync is configured. The private database of the signed-in user. |
 | Configuration | Build-time env: `VITE_CLOUDKIT_CONTAINER`, `VITE_CLOUDKIT_API_TOKEN`, `VITE_CLOUDKIT_ENVIRONMENT` (`development` or `production`, default `production`). The web API token is public by design and limited to allowed origins. Without a container and token, sync is off and nothing about it is shown. |
-| Record | One record per user: type `AppData`, name `mixingbowl`, one String field `json` with the whole `AppData`. The server's modified time is the remote save time. |
+| Record | One record per user: type `AppData`, name `mixingbowl`, one String field `plan` holding the whole `AppData` as JSON. The server's modified time is the remote save time. |
 | Local copy | `localStorage` stays the source the app reads and writes. Sync runs beside it; signed out or offline, the app works as before. |
 | Sync metadata | `mixingbowl:sync` in the same storage: `{ tag, syncedHash, editedAt }` — the record change tag and data hash at the last sync, and when this browser last changed the data. |
 | When to sync | On sign-in, when the page regains focus, 1.5 s after the last change, and right away when the page is hidden. One sync at a time; a request during a sync runs another afterwards. |
@@ -40,7 +40,7 @@
 ## 4. Setup (owner)
 
 1. developer.apple.com → Identifiers → iCloud Containers → new container, e.g. `iCloud.io.github.danielgollas.mixingbowl`.
-2. CloudKit Console → the container → Schema (Development): record type `AppData` with field `json` (String). Deploy schema changes to Production.
+2. CloudKit Console → the container → Schema (Development): record type `AppData` with field `plan` (String). Deploy schema changes to Production.
 3. CloudKit Console → API Access → API Tokens → new token: Sign In Callback "Post Message", Allowed Origins `https://danielgollas.github.io` (and `http://localhost:5173` for development).
 4. Repository variables `CLOUDKIT_CONTAINER`, `CLOUDKIT_API_TOKEN`, `CLOUDKIT_ENVIRONMENT`; the deploy workflow passes them to the build. Locally, `.env.local`.
 

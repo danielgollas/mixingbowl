@@ -18,7 +18,7 @@ function fakeCloudKit(db: { fetchRecords?: unknown; saveRecords?: unknown }, sig
 const record = (json: string, tag = 'tag-1') => ({
   recordName: RECORD_NAME,
   recordChangeTag: tag,
-  fields: { json: { value: json } },
+  fields: { plan: { value: json } },
   modified: { timestamp: 1234 },
 });
 
@@ -101,11 +101,11 @@ describe('cloudKitConnector', () => {
     const session = await cloudKitConnector(config, async () => CloudKit)();
     expect(await session.save('{"b":2}', 'tag-1')).toEqual({ json: '{"b":2}', savedAt: 1234, tag: 'tag-2' });
     expect(saveRecords).toHaveBeenLastCalledWith([
-      { recordType: RECORD_TYPE, recordName: RECORD_NAME, recordChangeTag: 'tag-1', fields: { json: { value: '{"b":2}' } } },
+      { recordType: RECORD_TYPE, recordName: RECORD_NAME, recordChangeTag: 'tag-1', fields: { plan: { value: '{"b":2}' } } },
     ]);
     await session.save('{}', null);
     expect(saveRecords).toHaveBeenLastCalledWith([
-      { recordType: RECORD_TYPE, recordName: RECORD_NAME, fields: { json: { value: '{}' } } },
+      { recordType: RECORD_TYPE, recordName: RECORD_NAME, fields: { plan: { value: '{}' } } },
     ]);
   });
 

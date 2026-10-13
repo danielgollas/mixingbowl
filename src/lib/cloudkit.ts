@@ -5,6 +5,8 @@ export const SIGN_IN_BUTTON_ID = 'apple-sign-in-button';
 export const SIGN_OUT_BUTTON_ID = 'apple-sign-out-button';
 export const RECORD_TYPE = 'AppData';
 export const RECORD_NAME = 'mixingbowl';
+/** The record's one String field: the whole plan as JSON. */
+export const PLAN_FIELD = 'plan';
 
 export interface CloudConfig {
   container: string;
@@ -104,7 +106,7 @@ async function records(request: () => Promise<CKResponse>): Promise<CKRecord[]> 
 }
 
 function toRemote(record: CKRecord | undefined): RemoteRecord | null {
-  const json = record?.fields.json?.value;
+  const json = record?.fields[PLAN_FIELD]?.value;
   if (!record || typeof json !== 'string') return null;
   return { json, savedAt: record.modified?.timestamp ?? 0, tag: record.recordChangeTag };
 }
@@ -160,7 +162,7 @@ function cloudKitSession(container: CKContainer): CloudSession {
         recordType: RECORD_TYPE,
         recordName: RECORD_NAME,
         ...(tag !== null && { recordChangeTag: tag }),
-        fields: { json: { value: json } },
+        fields: { [PLAN_FIELD]: { value: json } },
       };
       const saved = (await records(() => db.saveRecords([record])))[0];
       if (!saved?.recordChangeTag) throw new CloudError('other', 'iCloud didn’t confirm the save.');

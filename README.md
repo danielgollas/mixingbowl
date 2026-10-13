@@ -42,7 +42,7 @@ Sync is off until the build has a CloudKit container and web API token.
 1. [developer.apple.com](https://developer.apple.com/account/resources/identifiers/list/cloudContainer) →
    Identifiers → iCloud Containers → **+**, e.g. `iCloud.io.github.danielgollas.mixingbowl`.
 2. [CloudKit Console](https://icloud.developer.apple.com/) → the container → **Schema** (Development) → Record Types →
-   **+** `AppData` with one field `json` of type **String**. Then **Deploy Schema Changes…** to Production.
+   **+** `AppData` with one field `plan` of type **String**. Then **Deploy Schema Changes…** to Production.
 3. CloudKit Console → **Tokens & Keys** (API Access) → new **API Token**: Sign In Callback **Post Message**,
    Allowed Origins `https://danielgollas.github.io` (add `http://localhost:5173` for development).
 4. Repository variables (Settings → Secrets and variables → Actions → Variables), then re-run the deploy:
