@@ -1094,3 +1094,20 @@ a.prompt {
 .deficit {
   font-weight: 600;
 }
+
+.dice {
+  flex: none;
+  min-width: 44px;
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+
+.chips-action {
+  flex-basis: 100%;
+  justify-self: start;
+  text-align: left;
+}

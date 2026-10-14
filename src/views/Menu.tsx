@@ -1,16 +1,14 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useState } from 'preact/hooks';
+import { BowlEditor } from '../components/BowlEditor';
 import { MenuStats } from '../components/MenuStats';
 import { WeekHeader, useWeek } from '../components/WeekHeader';
-import { COMPONENT_LIST } from '../data/components';
-import { PRESET_MEALS, SLOT_KIND, SLOT_LABELS, getPreset, partsWithRole } from '../data/meals';
-import type { ComponentId, Meal, MenuEntry, Role, Slot } from '../data/types';
+import { PRESET_MEALS, SLOT_KIND, SLOT_LABELS, getPreset } from '../data/meals';
+import type { Meal, MenuEntry, Slot } from '../data/types';
 import { formatExtras, formatGrams, formatKcal } from '../lib/format';
 import { addEntry, entryDays, findMeal, householdMeals, plannedDays, resolveEntries } from '../lib/menu';
 import { mealNutrition } from '../lib/nutrition';
 import { hrefFor } from '../router';
 import { useAppState } from '../state';
-
-const BOWL_ORDER: Role[] = ['bed', 'protein', 'veg', 'sauce', 'topping'];
 
 const newMealId = () => `custom-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
@@ -180,84 +178,5 @@ function MenuItem({ meal, entry, range, canGrow, onDays, onRemove, onEdit }: Ite
       </div>
       {open && <BowlEditor meal={meal} onEdit={onEdit} />}
     </li>
-  );
-}
-
-const optionsFor = (role: Role) => COMPONENT_LIST.filter((c) => c.role === role);
-
-function BowlEditor({ meal, onEdit }: { meal: Meal; onEdit(changes: Partial<Meal>): void }) {
-  const [name, setName] = useState(meal.name);
-  // The first edit to a preset swaps in a copy with a new id and name.
-  useEffect(() => setName(meal.name), [meal.id]);
-  const idBase = `edit-${meal.id}`;
-
-  const setRole = (role: Role, ids: ComponentId[]) =>
-    onEdit({ parts: BOWL_ORDER.flatMap((r) => (r === role ? ids : partsWithRole(meal, r))) });
-
-  const single = (role: Role, label: string, optional: boolean) => (
-    <div class="field">
-      <label for={`${idBase}-${role}`}>{label}</label>
-      <select
-        id={`${idBase}-${role}`}
-        value={partsWithRole(meal, role)[0] ?? ''}
-        onChange={(e) => setRole(role, e.currentTarget.value ? [e.currentTarget.value] : [])}
-      >
-        {optional && <option value="">None</option>}
-        {optionsFor(role).map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.name}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-
-  const veg = new Set(partsWithRole(meal, 'veg'));
-
-  return (
-    <div class="editor">
-      <div class="field">
-        <label for={`${idBase}-name`}>Name</label>
-        <input
-          id={`${idBase}-name`}
-          type="text"
-          value={name}
-          onInput={(e) => {
-            const value = e.currentTarget.value;
-            setName(value);
-            if (value.trim()) onEdit({ name: value.trim() });
-          }}
-        />
-      </div>
-      {single('bed', 'Bed', false)}
-      {single('protein', 'Protein', false)}
-      <fieldset class="field chips">
-        <legend>Veg</legend>
-        {optionsFor('veg').map((c) => (
-          <label key={c.id} class="chip">
-            <input
-              type="checkbox"
-              checked={veg.has(c.id)}
-              onChange={() =>
-                setRole(
-                  'veg',
-                  optionsFor('veg')
-                    .map((v) => v.id)
-                    .filter((id) => (id === c.id ? !veg.has(id) : veg.has(id))),
-                )
-              }
-            />
-            <span>{c.name}</span>
-          </label>
-        ))}
-      </fieldset>
-      {single('sauce', 'Sauce', true)}
-      {single('topping', 'Topping', true)}
-      <p class="meta">
-        {getPreset(meal.id)
-          ? 'Changing anything saves this as your own bowl for this week. The preset stays as it is.'
-          : "Your own bowl. Changes apply everywhere it's used."}
-      </p>
-    </div>
   );
 }

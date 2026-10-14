@@ -478,3 +478,33 @@ describe('maintenance calories setting', () => {
     expect(stored().people[0].maintenance).toBeNull();
   });
 });
+
+describe('random swaps', () => {
+  it('re-rolls one part of a preset into your own copy', () => {
+    renderApp('#/menu');
+    const dinner = section('Dinner');
+    fireEvent.click(within(dinner).getAllByRole('button', { name: 'Swap ingredients' })[0]);
+    const before = (within(dinner).getByLabelText('Sauce') as HTMLSelectElement).value;
+    fireEvent.click(within(dinner).getByRole('button', { name: 'Random sauce' }));
+    const custom = Object.values(stored().customMeals);
+    expect(custom).toHaveLength(1);
+    expect(custom[0].parts).not.toContain(before);
+    expect(stored().menus[1].dinner![0].mealId).toBe(custom[0].id);
+    expect((within(dinner).getByLabelText('Sauce') as HTMLSelectElement).value).not.toBe(before);
+  });
+
+  it('re-rolls the veg as a new set of the same size', () => {
+    renderApp('#/menu');
+    const dinner = section('Dinner');
+    fireEvent.click(within(dinner).getAllByRole('button', { name: 'Swap ingredients' })[0]);
+    const checked = () =>
+      within(dinner)
+        .getAllByRole('checkbox')
+        .filter((c) => (c as HTMLInputElement).checked)
+        .map((c) => c.parentElement!.textContent);
+    const before = checked();
+    fireEvent.click(within(dinner).getByRole('button', { name: 'Random veg' }));
+    expect(checked()).toHaveLength(before.length);
+    expect(checked()).not.toEqual(before);
+  });
+});
