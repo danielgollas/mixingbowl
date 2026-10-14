@@ -25,9 +25,15 @@ export interface Person {
   meals: Slot[];
   /** Scale portions to this person's targets; off for someone who also eats outside the plan. */
   scale: boolean;
+  /** Maintenance calories (kcal/day) for the deficit; null until set. */
+  maintenance: number | null;
 }
 
 export const MAX_PEOPLE = 8;
+export const MAINTENANCE_RANGE = { min: 1000, max: 5000 } as const;
+
+export const isValidMaintenance = (kcal: unknown): kcal is number =>
+  typeof kcal === 'number' && Number.isFinite(kcal) && kcal >= MAINTENANCE_RANGE.min && kcal <= MAINTENANCE_RANGE.max;
 
 export interface WeekChecks {
   prep: string[];
@@ -58,6 +64,7 @@ export const newPerson = (id: string, name: string): Person => ({
   targetWeight: null,
   meals: [...DEFAULT_MEALS],
   scale: true,
+  maintenance: null,
 });
 
 export const defaultData = (today: string): AppData => ({
@@ -100,6 +107,7 @@ function parsePerson(value: unknown, index: number): Person | null {
     targetWeight: typeof weight === 'number' && Number.isFinite(weight) && weight > 0 ? weight : null,
     meals: meals.length > 0 ? meals : [...DEFAULT_MEALS],
     scale: value.scale !== false,
+    maintenance: isValidMaintenance(value.maintenance) ? value.maintenance : null,
   };
 }
 

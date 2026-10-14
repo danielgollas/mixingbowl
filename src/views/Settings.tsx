@@ -4,7 +4,7 @@ import { SLOT_KIND, SLOT_LABELS } from '../data/meals';
 import { SLOTS, type Slot } from '../data/types';
 import { formatNumber } from '../lib/format';
 import { isIsoDate } from '../lib/program';
-import { MAX_PEOPLE, type Person } from '../lib/storage';
+import { MAINTENANCE_RANGE, MAX_PEOPLE, isValidMaintenance, type Person } from '../lib/storage';
 import {
   KCAL_MAX,
   KCAL_MIN,
@@ -116,6 +116,8 @@ function PersonEditor({ person, index }: { person: Person; index: number }) {
   const [name, setName] = useState(person.name);
   const [weightDraft, setWeightDraft] = useState(person.targetWeight?.toString() ?? '');
   const [weightError, setWeightError] = useState<string | null>(null);
+  const [maintenanceDraft, setMaintenanceDraft] = useState(person.maintenance?.toString() ?? '');
+  const [maintenanceError, setMaintenanceError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const id = `person-${index}`;
   const range = WEIGHT_RANGE[unit];
@@ -144,6 +146,25 @@ function PersonEditor({ person, index }: { person: Person; index: number }) {
     const weight = parseWeight(input.value);
     if (input.validity.badInput || (weight !== null && !isValidWeight(weight, unit))) {
       setWeightError(`Enter a weight between ${range.min} and ${range.max} ${unit}.`);
+    }
+  };
+
+  const onMaintenanceInput = (input: HTMLInputElement) => {
+    setMaintenanceDraft(input.value);
+    if (input.validity.badInput) return;
+    const kcal = parseWeight(input.value);
+    if (kcal === null || isValidMaintenance(kcal)) {
+      updatePerson(person.id, { maintenance: kcal });
+      setMaintenanceError(null);
+    }
+  };
+
+  const onMaintenanceBlur = (input: HTMLInputElement) => {
+    const kcal = parseWeight(input.value);
+    if (input.validity.badInput || (kcal !== null && !isValidMaintenance(kcal))) {
+      setMaintenanceError(
+        `Enter between ${formatNumber(MAINTENANCE_RANGE.min)} and ${formatNumber(MAINTENANCE_RANGE.max)} kcal a day.`,
+      );
     }
   };
 
@@ -198,6 +219,32 @@ function PersonEditor({ person, index }: { person: Person; index: number }) {
             ? `${formatNumber(target.min)}–${formatNumber(target.max)} g protein per day`
             : 'The brief targets 0.8–1.0 g of protein per pound of target body weight.'}
         </p>
+      </div>
+
+      <div class="field">
+        <label for={`${id}-maintenance`}>Maintenance calories</label>
+        <div class="input-row">
+          <input
+            id={`${id}-maintenance`}
+            type="number"
+            inputMode="numeric"
+            step="10"
+            min={MAINTENANCE_RANGE.min}
+            max={MAINTENANCE_RANGE.max}
+            placeholder="e.g. 2200"
+            value={maintenanceDraft}
+            aria-invalid={maintenanceError ? 'true' : undefined}
+            onInput={(e) => onMaintenanceInput(e.currentTarget)}
+            onBlur={(e) => onMaintenanceBlur(e.currentTarget)}
+          />
+          <span class="unit-suffix">kcal/day</span>
+        </div>
+        {maintenanceError && (
+          <p class="error" role="alert">
+            {maintenanceError}
+          </p>
+        )}
+        <p class="meta">What this person burns in a day. Use a TDEE calculator; the Menu shows the deficit.</p>
       </div>
 
       <fieldset class="field meal-choices">

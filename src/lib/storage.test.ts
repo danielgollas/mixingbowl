@@ -25,7 +25,7 @@ describe('load', () => {
     expect(defaultData(TODAY)).toEqual({
       version: 3,
       settings: { startDate: TODAY, unit: 'lb' },
-      people: [{ id: 'me', name: 'Me', targetWeight: null, meals: ['snack', 'dinner'], scale: true }],
+      people: [{ id: 'me', name: 'Me', targetWeight: null, meals: ['snack', 'dinner'], scale: true, maintenance: null }],
       activePerson: 'me',
       eaten: {},
       menus: {},
@@ -64,7 +64,7 @@ describe('load', () => {
     expect(data).toEqual({
       ...defaultData(TODAY),
       settings: { startDate: '2026-09-01', unit: 'lb' },
-      people: [{ id: 'me', name: 'Me', targetWeight: 160, meals: ['snack', 'dinner'], scale: true }],
+      people: [{ id: 'me', name: 'Me', targetWeight: 160, meals: ['snack', 'dinner'], scale: true, maintenance: null }],
       eaten: { me: { '2026-09-02': ['breakfast', 'dinner'] } },
     });
   });
@@ -84,7 +84,7 @@ describe('load', () => {
     expect(data).toEqual({
       version: 3,
       settings: { startDate: '2026-09-01', unit: 'kg' },
-      people: [{ id: 'me', name: 'Me', targetWeight: 72.5, meals: ['lunch', 'dinner'], scale: true }],
+      people: [{ id: 'me', name: 'Me', targetWeight: 72.5, meals: ['lunch', 'dinner'], scale: true, maintenance: null }],
       activePerson: 'me',
       eaten: { me: { '2026-09-02': ['lunch'] } },
       menus: { '2': { dinner: [{ mealId: 'custom-a', days: 7 }] } },
@@ -98,10 +98,10 @@ describe('load', () => {
       storageWith({
         version: 3,
         people: [
-          { id: 'a', name: '  Ana ', targetWeight: 140, meals: ['dinner'], scale: true },
+          { id: 'a', name: '  Ana ', targetWeight: 140, meals: ['dinner'], scale: true, maintenance: null },
           { id: 'a', name: 'Duplicate' },
           { name: 'No id' },
-          { id: 'b', name: ' ', targetWeight: -3, meals: ['brunch'], scale: true },
+          { id: 'b', name: ' ', targetWeight: -3, meals: ['brunch'], scale: true, maintenance: null },
         ],
         activePerson: 'gone',
         eaten: { a: { '2026-09-02': ['dinner'] }, gone: { '2026-09-02': ['dinner'] }, b: 'x' },
@@ -109,8 +109,8 @@ describe('load', () => {
       TODAY,
     );
     expect(data.people).toEqual([
-      { id: 'a', name: 'Ana', targetWeight: 140, meals: ['dinner'], scale: true },
-      { id: 'b', name: 'Person 2', targetWeight: null, meals: ['snack', 'dinner'], scale: true },
+      { id: 'a', name: 'Ana', targetWeight: 140, meals: ['dinner'], scale: true, maintenance: null },
+      { id: 'b', name: 'Person 2', targetWeight: null, meals: ['snack', 'dinner'], scale: true, maintenance: null },
     ]);
     expect(data.activePerson).toBe('a');
     expect(data.eaten).toEqual({ a: { '2026-09-02': ['dinner'] } });
@@ -118,7 +118,7 @@ describe('load', () => {
 
   it('scales portions unless a person has scaling turned off', () => {
     const data = load(
-      storageWith({ version: 3, people: [{ id: 'a', name: 'A' }, { id: 'b', name: 'B', scale: false }] }),
+      storageWith({ version: 3, people: [{ id: 'a', name: 'A' }, { id: 'b', name: 'B', scale: false, maintenance: null }] }),
       TODAY,
     );
     expect(data.people.map((p) => p.scale)).toEqual([true, false]);
@@ -138,7 +138,7 @@ describe('load', () => {
       TODAY,
     );
     expect(data.settings).toEqual({ startDate: TODAY, unit: 'lb' });
-    expect(data.people[0]).toEqual({ id: 'me', name: 'Me', targetWeight: null, meals: ['lunch', 'dinner'], scale: true });
+    expect(data.people[0]).toEqual({ id: 'me', name: 'Me', targetWeight: null, meals: ['lunch', 'dinner'], scale: true, maintenance: null });
     expect(data.eaten).toEqual({ me: { '2026-09-02': ['breakfast'] } });
   });
 
@@ -209,8 +209,8 @@ describe('save', () => {
       ...defaultData('2026-09-01'),
       settings: { startDate: '2026-09-01', unit: 'lb' },
       people: [
-        { id: 'me', name: 'Me', targetWeight: 160, meals: ['lunch', 'dinner'], scale: true },
-        { id: 'p2', name: 'Alex', targetWeight: null, meals: ['dinner'], scale: true },
+        { id: 'me', name: 'Me', targetWeight: 160, meals: ['lunch', 'dinner'], scale: true, maintenance: null },
+        { id: 'p2', name: 'Alex', targetWeight: null, meals: ['dinner'], scale: true, maintenance: null },
       ],
       activePerson: 'p2',
       eaten: { me: { '2026-09-14': ['lunch'] } },
@@ -241,5 +241,23 @@ describe('parseData', () => {
     expect(parseData(null, TODAY)).toBeNull();
     expect(parseData('{oops', TODAY)).toBeNull();
     expect(parseData(JSON.stringify({ ...data, version: 4 }), TODAY)).toBeNull();
+  });
+});
+
+describe('maintenance calories', () => {
+  const withMaintenance = (maintenance: unknown) =>
+    load(storageWith({ ...defaultData(TODAY), people: [{ id: 'me', name: 'Me', meals: ['dinner'], maintenance }] }), TODAY)
+      .people[0].maintenance;
+
+  it('keeps a value in range and drops anything else', () => {
+    expect(withMaintenance(2200)).toBe(2200);
+    expect(withMaintenance(900)).toBeNull();
+    expect(withMaintenance(6000)).toBeNull();
+    expect(withMaintenance('2200')).toBeNull();
+    expect(withMaintenance(undefined)).toBeNull();
+  });
+
+  it('starts empty for new people', () => {
+    expect(defaultData(TODAY).people[0].maintenance).toBeNull();
   });
 });

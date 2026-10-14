@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
+import { MenuStats } from '../components/MenuStats';
 import { WeekHeader, useWeek } from '../components/WeekHeader';
 import { COMPONENT_LIST } from '../data/components';
 import { PRESET_MEALS, SLOT_KIND, SLOT_LABELS, getPreset, partsWithRole } from '../data/meals';
@@ -20,6 +21,7 @@ export function Menu({ week: routeWeek }: { week: number | null }) {
   return (
     <>
       <WeekHeader page="menu" title="Menu" week={week} />
+      <MenuStats week={week} />
       {householdMeals(data.people).map((slot) => (
         <MenuSection key={slot} week={week} slot={slot} />
       ))}

@@ -213,8 +213,8 @@ describe('Menu', () => {
 describe('People', () => {
   const household: Partial<AppData> = {
     people: [
-      { id: 'me', name: 'Me', targetWeight: 160, meals: ['snack', 'dinner'], scale: true },
-      { id: 'alex', name: 'Alex', targetWeight: null, meals: ['dinner'], scale: true },
+      { id: 'me', name: 'Me', targetWeight: 160, meals: ['snack', 'dinner'], scale: true, maintenance: null },
+      { id: 'alex', name: 'Alex', targetWeight: null, meals: ['dinner'], scale: true, maintenance: null },
     ],
   };
 
@@ -423,5 +423,58 @@ describe('Settings', () => {
     renderApp('#/settings');
     fireEvent.input(screen.getByLabelText('Start date'), { target: { value: '2026-09-10' } });
     expect(stored().settings.startDate).toBe('2026-09-10');
+  });
+});
+
+describe('menu stats', () => {
+  const stats = () => screen.getByRole('region', { name: 'Daily averages' });
+
+  it('shows each person’s daily averages against their targets, and updates as the menu changes', () => {
+    renderApp('#/menu', { targetWeight: 160 });
+    expect(stats().textContent).toMatch(/kcal/);
+    expect(stats().textContent).toContain('of 128–160 g');
+    expect(stats().textContent).toMatch(/Fat.*Fiber.*Sugars/);
+    expect(stats().textContent).toContain('Add maintenance calories in Settings to see the deficit.');
+    const before = stats().textContent;
+    const dinner = section('Dinner');
+    fireEvent.click(within(dinner).getAllByRole('button', { name: /^Remove / })[0]);
+    expect(stats().textContent).not.toBe(before);
+    expect(stats().textContent).toContain('4 unplanned days count as nothing eaten.');
+  });
+
+  it('shows the calorie deficit once maintenance calories are set', () => {
+    renderApp('#/menu', { targetWeight: 160, maintenance: 2400 });
+    expect(stats().textContent).toMatch(/Deficit [\d,]+ kcal\/day · [\d,]+ kcal\/week · ≈ [\d.]+ lb\/week/);
+  });
+
+  it('calls a negative deficit a surplus', () => {
+    renderApp('#/menu', { targetWeight: 160, maintenance: 1000 });
+    expect(stats().textContent).toMatch(/Surplus [\d,]+ kcal\/day/);
+  });
+
+  it('names each person when there are several', () => {
+    renderApp('#/menu', {}, {
+      people: [
+        { id: 'me', name: 'Me', targetWeight: 160, meals: ['snack', 'dinner'], scale: true, maintenance: null },
+        { id: 'alex', name: 'Alex', targetWeight: null, meals: ['dinner'], scale: true, maintenance: 1800 },
+      ],
+    });
+    expect(within(stats()).getByRole('heading', { name: 'Alex' })).toBeTruthy();
+    expect(within(stats()).getByRole('heading', { name: 'Me' })).toBeTruthy();
+  });
+});
+
+describe('maintenance calories setting', () => {
+  it('saves a valid value and explains an invalid one', () => {
+    renderApp('#/settings');
+    const input = screen.getByLabelText('Maintenance calories');
+    fireEvent.input(input, { target: { value: '2200' } });
+    expect(stored().people[0].maintenance).toBe(2200);
+    fireEvent.input(input, { target: { value: '500' } });
+    fireEvent.blur(input);
+    expect(screen.getByRole('alert').textContent).toBe('Enter between 1,000 and 5,000 kcal a day.');
+    expect(stored().people[0].maintenance).toBe(2200);
+    fireEvent.input(input, { target: { value: '' } });
+    expect(stored().people[0].maintenance).toBeNull();
   });
 });

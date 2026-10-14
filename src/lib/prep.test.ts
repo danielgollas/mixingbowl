@@ -138,8 +138,8 @@ describe('householdTotals', () => {
   const data = {
     ...defaultData('2026-09-14'),
     people: [
-      { id: 'me', name: 'Me', targetWeight: 160, meals: ['snack', 'dinner'] as Slot[], scale: true },
-      { id: 'alex', name: 'Alex', targetWeight: null, meals: ['dinner'] as Slot[], scale: true },
+      { id: 'me', name: 'Me', targetWeight: 160, meals: ['snack', 'dinner'] as Slot[], scale: true, maintenance: null },
+      { id: 'alex', name: 'Alex', targetWeight: null, meals: ['dinner'] as Slot[], scale: true, maintenance: null },
     ],
   };
 
@@ -153,7 +153,7 @@ describe('householdTotals', () => {
   });
 
   it('uses one base portion for a person with scaling off', () => {
-    const unscaledAlex = { ...data, people: [data.people[0], { ...data.people[1], scale: false }] };
+    const unscaledAlex = { ...data, people: [data.people[0], { ...data.people[1], scale: false, maintenance: null }] };
     const { people } = householdTotals(unscaledAlex, 1);
     expect(people[1].totals.components.get('tofu-scramble')).toBe(4);
     expect(people[1].totals.components.get('brown-rice')).toBe(7);
