@@ -8,6 +8,7 @@ import { ComponentDetail } from './views/ComponentDetail';
 import { Menu } from './views/Menu';
 import { Prep } from './views/Prep';
 import { PrintWeek } from './views/PrintWeek';
+import { Recipes } from './views/Recipes';
 import { Settings } from './views/Settings';
 import { Shopping } from './views/Shopping';
 import { Today } from './views/Today';
@@ -73,6 +74,8 @@ function View({ route }: { route: Route }) {
       return <Shopping week={route.week} />;
     case 'print':
       return <PrintWeek week={route.week} />;
+    case 'recipes':
+      return <Recipes />;
     case 'component':
       return <ComponentDetail id={route.id} />;
     case 'settings':

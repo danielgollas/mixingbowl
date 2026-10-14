@@ -50,10 +50,17 @@ describe('routing', () => {
     expect(document.activeElement).toBe(h1);
   });
 
-  it('shows five tabs and marks the current one', () => {
+  it('shows six tabs and marks the current one', () => {
     renderApp('#/prep/2');
     const tabs = within(screen.getByRole('navigation', { name: 'Main' }));
-    expect(tabs.getAllByRole('link').map((l) => l.textContent)).toEqual(['Today', 'Menu', 'Prep', 'Shopping', 'Settings']);
+    expect(tabs.getAllByRole('link').map((l) => l.textContent)).toEqual([
+      'Today',
+      'Menu',
+      'Recipes',
+      'Prep',
+      'Shopping',
+      'Settings',
+    ]);
     expect(tabs.getByRole('link', { name: 'Prep' }).getAttribute('aria-current')).toBe('page');
   });
 });
@@ -543,5 +550,49 @@ describe('randomize week', () => {
     expect(screen.getByRole('button', { name: 'Undo' })).toBeTruthy();
     fireEvent.click(within(section('Dinner')).getAllByRole('button', { name: /^Fewer days of / })[0]);
     expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull();
+  });
+});
+
+describe('recipes', () => {
+  const tab = (name: string) => within(screen.getByRole('navigation', { name: 'Main' })).getByRole('link', { name });
+  const results = () => within(screen.getByRole('list', { name: 'Recipes' })).getAllByRole('link');
+
+  it('lists bowls, snacks and parts, with search, filters and sorting', () => {
+    renderApp('#/recipes');
+    expect(heading()).toBe('Recipes');
+    expect(tab('Recipes').getAttribute('aria-current')).toBe('page');
+    const all = results().length;
+    fireEvent.click(screen.getByRole('radio', { name: 'Sauces' }));
+    expect(results().length).toBeLessThan(all);
+    expect(results().every((l) => l.getAttribute('href')!.startsWith('#/components/'))).toBe(true);
+    fireEvent.click(screen.getByRole('radio', { name: 'Bowls' }));
+    fireEvent.input(screen.getByRole('searchbox', { name: 'Search recipes' }), { target: { value: 'tempeh' } });
+    expect(results().length).toBeGreaterThan(0);
+    expect(results().every((l) => l.getAttribute('href')!.startsWith('#/bowls/'))).toBe(true);
+    fireEvent.input(screen.getByRole('searchbox', { name: 'Search recipes' }), { target: { value: 'zzzz' } });
+    expect(screen.getByText('No recipes match.')).toBeTruthy();
+  });
+
+  it('marks Recipes current on bowl and part pages', () => {
+    renderApp('#/components/seitan');
+    expect(tab('Recipes').getAttribute('aria-current')).toBe('page');
+  });
+
+  it('rolls a random bowl, keeps locked parts, re-rolls one part and saves it', () => {
+    renderApp('#/recipes');
+    const card = screen.getByRole('region', { name: 'Random bowl' });
+    const part = (role: string) => within(card).getByTestId(`roll-${role}`).textContent;
+    const protein = part('protein');
+    fireEvent.click(within(card).getByRole('checkbox', { name: 'Keep protein' }));
+    for (let i = 0; i < 5; i++) fireEvent.click(within(card).getByRole('button', { name: 'Roll again' }));
+    expect(part('protein')).toBe(protein);
+    const sauce = part('sauce');
+    fireEvent.click(within(card).getByRole('button', { name: 'Random sauce' }));
+    expect(part('sauce')).not.toBe(sauce);
+    fireEvent.click(within(card).getByRole('button', { name: 'Save bowl' }));
+    const saved = Object.values(stored().customMeals);
+    expect(saved).toHaveLength(1);
+    expect(saved[0].name).toContain(' & ');
+    expect(location.hash).toBe(`#/bowls/${saved[0].id}`);
   });
 });

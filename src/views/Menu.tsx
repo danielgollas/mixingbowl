@@ -5,14 +5,12 @@ import { WeekHeader, useWeek } from '../components/WeekHeader';
 import { PRESET_MEALS, SLOT_KIND, SLOT_LABELS, getPreset } from '../data/meals';
 import type { Meal, MenuEntry, Slot, WeekMenu } from '../data/types';
 import { formatExtras, formatGrams, formatKcal } from '../lib/format';
-import { addEntry, entryDays, findMeal, householdMeals, plannedDays, resolveEntries } from '../lib/menu';
+import { addEntry, entryDays, findMeal, householdMeals, newMealId, plannedDays, resolveEntries } from '../lib/menu';
 import { randomWeek } from '../lib/random';
 import { stableStringify } from '../lib/sync';
 import { mealNutrition } from '../lib/nutrition';
 import { hrefFor } from '../router';
 import { useAppState } from '../state';
-
-const newMealId = () => `custom-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
 export function Menu({ week: routeWeek }: { week: number | null }) {
   const { data } = useAppState();

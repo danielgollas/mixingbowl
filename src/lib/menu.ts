@@ -6,6 +6,9 @@ import type { PlannedMeal } from './scaling';
 export type Menus = Record<string, WeekMenu>;
 export type CustomMeals = Record<MealId, Meal>;
 
+/** A fresh id for one of your own bowls. */
+export const newMealId = () => `custom-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+
 export const findMeal = (id: MealId, custom: CustomMeals): Meal | undefined =>
   getPreset(id) ?? (Object.hasOwn(custom, id) ? custom[id] : undefined);
 

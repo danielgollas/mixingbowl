@@ -1115,3 +1115,75 @@ a.prompt {
 .randomize {
   align-items: center;
 }
+
+.search {
+  width: 100%;
+  min-height: 44px;
+}
+
+.filter-chips {
+  margin: 0;
+}
+
+.sort-field {
+  max-width: 16rem;
+}
+
+.recipe-list {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.recipe-row {
+  display: grid;
+  gap: 0.15rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.recipe-name {
+  font-weight: 600;
+}
+
+.roll {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.roll-row {
+  display: grid;
+  grid-template-columns: 4.5rem 1fr auto auto;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.roll-role {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.lock {
+  display: grid;
+  place-items: center;
+  min-width: 44px;
+  min-height: 44px;
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+
+.lock input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.lock:focus-within {
+  outline: 2px solid var(--accent);
+  border-radius: var(--radius);
+}

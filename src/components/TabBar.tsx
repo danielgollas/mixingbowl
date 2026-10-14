@@ -1,7 +1,7 @@
 import type { JSX } from 'preact';
 import { hrefFor, type Route } from '../router';
 
-type Page = 'today' | 'menu' | 'prep' | 'shopping' | 'settings';
+type Page = 'today' | 'menu' | 'recipes' | 'prep' | 'shopping' | 'settings';
 
 const TABS: { page: Page; label: string; icon: JSX.Element }[] = [
   {
@@ -21,6 +21,16 @@ const TABS: { page: Page; label: string; icon: JSX.Element }[] = [
       <>
         <path d="M3.5 11.5h17a8.5 8.5 0 0 1-17 0z" />
         <path d="M8 8.5c0-2 1.5-2 1.5-4M12 8.5c0-2 1.5-2 1.5-4M16 8.5c0-2 1.5-2 1.5-4" />
+      </>
+    ),
+  },
+  {
+    page: 'recipes',
+    label: 'Recipes',
+    icon: (
+      <>
+        <path d="M6 3.5h10.5a2 2 0 0 1 2 2v15H8a2 2 0 0 1-2-2z" />
+        <path d="M6 18.5a2 2 0 0 1 2-2h10.5M10 7.5h5M10 11h5" />
       </>
     ),
   },
@@ -62,7 +72,8 @@ const tabHref = (page: Page): string =>
   page === 'menu' || page === 'prep' || page === 'shopping' ? hrefFor({ name: page, week: null }) : hrefFor({ name: page });
 
 export function TabBar({ route }: { route: Route }) {
-  const current: Page | null = route.name === 'component' ? null : route.name === 'print' ? 'prep' : route.name;
+  const current: Page =
+    route.name === 'component' || route.name === 'bowl' ? 'recipes' : route.name === 'print' ? 'prep' : route.name;
   return (
     <nav class="tabbar" aria-label="Main">
       {TABS.map((tab) => (

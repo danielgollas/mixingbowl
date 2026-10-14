@@ -7,6 +7,8 @@ export type Route =
   | { name: 'today' }
   | { name: WeekPage; week: number | null }
   | { name: 'component'; id: string }
+  | { name: 'bowl'; id: string }
+  | { name: 'recipes' }
   | { name: 'settings' };
 
 const WEEK_PAGES: readonly string[] = ['menu', 'prep', 'shopping', 'print'] satisfies WeekPage[];
@@ -18,9 +20,9 @@ export function parseHash(hash: string): Route | null {
   if (!match) return null;
   const [page, param, ...rest] = match[1].split('/');
   if (rest.length > 0) return null;
-  if (page === 'components' && param) {
+  if ((page === 'components' || page === 'bowls') && param) {
     try {
-      return { name: 'component', id: decodeURIComponent(param) };
+      return { name: page === 'bowls' ? 'bowl' : 'component', id: decodeURIComponent(param) };
     } catch {
       return null; // malformed escape such as "%"
     }
@@ -30,13 +32,15 @@ export function parseHash(hash: string): Route | null {
     return /^[1-9]\d{0,3}$/.test(param) ? { name: page as WeekPage, week: Number(param) } : null;
   }
   if (param !== undefined) return null;
-  return page === 'today' || page === 'settings' ? { name: page } : null;
+  return page === 'today' || page === 'settings' || page === 'recipes' ? { name: page } : null;
 }
 
 export function hrefFor(route: Route): string {
   switch (route.name) {
     case 'component':
       return `#/components/${encodeURIComponent(route.id)}`;
+    case 'bowl':
+      return `#/bowls/${encodeURIComponent(route.id)}`;
     case 'menu':
     case 'prep':
     case 'shopping':

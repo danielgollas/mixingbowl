@@ -13,6 +13,8 @@ const ROUTES: [string, Route][] = [
   ['#/print/4', { name: 'print', week: 4 }],
   ['#/components/crispy-tofu', { name: 'component', id: 'crispy-tofu' }],
   ['#/settings', { name: 'settings' }],
+  ['#/recipes', { name: 'recipes' }],
+  ['#/bowls/crispy-tofu-bowl', { name: 'bowl', id: 'crispy-tofu-bowl' }],
 ];
 
 describe('parseHash', () => {
@@ -20,7 +22,7 @@ describe('parseHash', () => {
     expect(parseHash(hash)).toEqual(route);
   });
 
-  it.each(['', '#', '#/', '#/nope', '#/today/extra', '#/components/a/b', 'today', '#/components/%', '#/menu/0', '#/menu/x', '#/prep/1/2', '#/week', '#/recipes'])('rejects %j', (hash) => {
+  it.each(['', '#', '#/', '#/nope', '#/today/extra', '#/components/a/b', 'today', '#/components/%', '#/menu/0', '#/menu/x', '#/prep/1/2', '#/week', '#/recipes/x', '#/bowls', '#/bowls/%', '#/bowls/a/b'])('rejects %j', (hash) => {
     expect(parseHash(hash)).toBeNull();
   });
 });
