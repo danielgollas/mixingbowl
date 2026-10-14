@@ -67,7 +67,7 @@ export function BowlEditor({ meal, onEdit }: { meal: Meal; onEdit(changes: Parti
       <fieldset class="field chips">
         <legend>Veg</legend>
         <button type="button" class="button-link chips-action" onClick={() => reroll('veg')}>
-          <span aria-hidden="true">🎲 </span>Random veg
+          <span class="icon" aria-hidden="true">🎲</span>Random veg
         </button>
         {optionsFor('veg').map((c) => (
           <label key={c.id} class="chip">

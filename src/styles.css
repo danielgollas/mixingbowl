@@ -136,7 +136,7 @@ h1:focus:not(:focus-visible) {
   inset: auto 0 0;
   z-index: 10;
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   padding: 0 max(0px, calc((100vw - 40rem) / 2)) env(safe-area-inset-bottom);
   background: color-mix(in srgb, var(--surface) 92%, transparent);
   backdrop-filter: blur(12px);
@@ -849,7 +849,9 @@ a.prompt {
   font-weight: 600;
 }
 
-.field input[type='text'] {
+.field input[type='text'],
+.field select,
+.search {
   min-height: 44px;
   padding: 0.55rem 0.75rem;
   border: 1px solid var(--border);
@@ -1118,7 +1120,6 @@ a.prompt {
 
 .search {
   width: 100%;
-  min-height: 44px;
 }
 
 .filter-chips {
@@ -1186,4 +1187,12 @@ a.prompt {
 .lock:focus-within {
   outline: 2px solid var(--accent);
   border-radius: var(--radius);
+}
+
+.icon {
+  margin-right: 0.35em;
+}
+
+.lock input:not(:checked) + span {
+  opacity: 0.35;
 }

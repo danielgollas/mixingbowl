@@ -81,7 +81,7 @@ function RandomizeWeek({ week }: { week: number }) {
   return (
     <div class="entry-actions randomize">
       <button type="button" class="button-secondary" onClick={() => setAsking(true)}>
-        <span aria-hidden="true">🎲 </span>Randomize week
+        <span class="icon" aria-hidden="true">🎲</span>Randomize week
       </button>
       {canUndo && (
         <button
