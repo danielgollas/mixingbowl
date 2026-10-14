@@ -42,8 +42,15 @@ export function BowlDetail({ id }: { id: string }) {
 
   const addToMenu = () => {
     if (!validWeek) return;
-    setMenu(week, slot, addEntry(resolveEntries(data.menus, week, slot), meal.id));
-    setAdded(`Added to ${SLOT_LABELS[slot].toLowerCase()} in week ${week}.`);
+    const entries = resolveEntries(data.menus, week, slot);
+    const next = addEntry(entries, meal.id);
+    const label = SLOT_LABELS[slot].toLowerCase();
+    if (next === entries) {
+      setAdded(`Every day of ${label} in week ${week} already has its own item. Remove one on the Menu first.`);
+      return;
+    }
+    setMenu(week, slot, next);
+    setAdded(`Added to ${label} in week ${week}.`);
   };
 
   return (

@@ -648,3 +648,23 @@ describe('bowl page', () => {
     expect(heading()).toBe('Recipe not found');
   });
 });
+
+describe('review fixes', () => {
+  it('does not claim to add a bowl when every day of that meal already has its own item', () => {
+    const full = Array.from({ length: 7 }, (_, i) => ({ mealId: Object.keys(PRESETS).filter((id) => PRESETS[id].kind === 'bowl')[i], days: 1 }));
+    renderApp('#/bowls/crispy-tofu-bowl', {}, { menus: { 1: { dinner: full } } });
+    fireEvent.change(screen.getByLabelText('Meal'), { target: { value: 'dinner' } });
+    fireEvent.input(screen.getByLabelText('Week'), { target: { value: '1' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add to menu' }));
+    expect(screen.getByRole('status').textContent).toBe(
+      'Every day of dinner in week 1 already has its own item. Remove one on the Menu first.',
+    );
+    expect(stored().menus[1].dinner).toEqual(full);
+  });
+
+  it('says randomizing also changes later weeks that follow this menu', () => {
+    renderApp('#/menu');
+    fireEvent.click(screen.getByRole('button', { name: 'Randomize week' }));
+    expect(screen.getByText(/Later weeks that follow this/)).toBeTruthy();
+  });
+});

@@ -54,7 +54,10 @@ function RandomizeWeek({ week }: { week: number }) {
   if (asking) {
     return (
       <div class="card confirm randomize" role="group" aria-labelledby="randomize-title">
-        <p id="randomize-title">Replace this week's menu with random picks from the presets and your own bowls?</p>
+        <p id="randomize-title">
+          Replace this week's menu with random picks from the presets and your own bowls? Later weeks that follow this
+          one's menu change too.
+        </p>
         <fieldset class="field">
           <legend>Variations per meal</legend>
           <div class="segmented">
