@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { COMPONENT_LIST, getComponent } from '../data/components';
-import { isValidMeal, partsWithRole } from '../data/meals';
+import { PRESET_MEALS, isValidMeal, partsWithRole } from '../data/meals';
+import { findMeal } from './menu';
 import type { ComponentId, Meal, Role } from '../data/types';
-import { bowlName, pick, randomVeg, rerollPart, rollBowl, seeded } from './random';
+import { bowlName, pick, randomVeg, randomWeek, rerollPart, rollBowl, seeded, splitDays } from './random';
 
 const asMeal = (parts: ComponentId[]): Meal => ({ id: 'x', name: 'X', kind: 'bowl', parts });
 const roleOf = (id: ComponentId) => getComponent(id)!.role;
@@ -101,5 +102,44 @@ describe('bowlName', () => {
     expect(bowlName(['brown-rice', 'tofu-scramble'])).toBe(
       `${getComponent('tofu-scramble')!.name} & ${getComponent('brown-rice')!.name}`,
     );
+  });
+});
+
+describe('splitDays', () => {
+  it('spreads 7 days as evenly as possible, larger shares first', () => {
+    expect(splitDays(1)).toEqual([7]);
+    expect(splitDays(2)).toEqual([4, 3]);
+    expect(splitDays(3)).toEqual([3, 2, 2]);
+    expect(splitDays(4)).toEqual([2, 2, 2, 1]);
+  });
+});
+
+describe('randomWeek', () => {
+  it('gives each meal different items of the right kind that fill the week', () => {
+    const rng = seeded(9);
+    for (let i = 0; i < 30; i++) {
+      const menu = randomWeek(['snack', 'dinner'], {}, 3, rng);
+      for (const slot of ['snack', 'dinner'] as const) {
+        const entries = menu[slot]!;
+        expect(entries.map((e) => e.days)).toEqual([3, 2, 2]);
+        expect(new Set(entries.map((e) => e.mealId)).size).toBe(3);
+        for (const e of entries) expect(findMeal(e.mealId, {})?.kind).toBe(slot === 'snack' ? 'snack' : 'bowl');
+      }
+    }
+  });
+
+  it('includes your own bowls', () => {
+    const mine: Meal = { id: 'custom-1', name: 'Mine', kind: 'bowl', parts: ['brown-rice', 'tofu-scramble'] };
+    const rng = seeded(10);
+    const seen = new Set<string>();
+    for (let i = 0; i < 60; i++) for (const e of randomWeek(['dinner'], { [mine.id]: mine }, 4, rng).dinner!) seen.add(e.mealId);
+    expect(seen.has('custom-1')).toBe(true);
+  });
+
+  it('uses every option once when there are fewer than asked', () => {
+    const snacks = PRESET_MEALS.filter((m) => m.kind === 'snack').length;
+    const entries = randomWeek(['snack'], {}, snacks + 2, seeded(11)).snack!;
+    expect(entries).toHaveLength(Math.min(snacks, 7));
+    expect(entries.reduce((sum, e) => sum + e.days, 0)).toBe(7);
   });
 });

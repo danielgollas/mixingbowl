@@ -1,6 +1,6 @@
 import { createContext, type ComponentChildren } from 'preact';
 import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { SLOTS, type Meal, type MenuEntry, type Slot } from './data/types';
+import { SLOTS, type Meal, type MenuEntry, type Slot, type WeekMenu } from './data/types';
 import { today as currentDate } from './lib/clock';
 import { cloudConfig, cloudKitConnector } from './lib/cloudkit';
 import {
@@ -37,6 +37,8 @@ export interface AppState {
   setActivePerson(id: string): void;
   /** Replaces one meal's entries for a program week. */
   setMenu(week: number, slot: Slot, entries: MenuEntry[]): void;
+  /** Replaces a program week's whole menu; null removes it so the week falls back to an earlier one. */
+  replaceWeekMenu(week: number, menu: WeekMenu | null): void;
   /** Adds or replaces one of your own bowls. */
   saveCustomMeal(meal: Meal): void;
   togglePrep(week: number, componentId: string): void;
@@ -136,6 +138,11 @@ export function AppStateProvider({ children, storage, cloud, syncDelay }: Provid
       setActivePerson: (id) => setData((d) => (d.people.some((p) => p.id === id) ? { ...d, activePerson: id } : d)),
       setMenu: (week, slot, entries) =>
         setData((d) => ({ ...d, menus: { ...d.menus, [week]: { ...d.menus[week], [slot]: entries } } })),
+      replaceWeekMenu: (week, menu) =>
+        setData((d) => {
+          const { [week]: _old, ...menus } = d.menus;
+          return { ...d, menus: menu ? { ...menus, [week]: menu } : menus };
+        }),
       saveCustomMeal: (meal) => setData((d) => ({ ...d, customMeals: { ...d.customMeals, [meal.id]: meal } })),
       togglePrep: (week, id) => setData((d) => updateChecks(d, week, (c) => ({ ...c, prep: toggleIn(c.prep, id) }))),
       toggleShopping: (week, id) =>

@@ -1,6 +1,7 @@
 import { COMPONENT_LIST, getComponent } from '../data/components';
-import { partsWithRole } from '../data/meals';
-import type { Component, ComponentId, Meal, Role } from '../data/types';
+import { PRESET_MEALS, SLOT_KIND, partsWithRole } from '../data/meals';
+import type { Component, ComponentId, Meal, MenuEntry, Role, Slot } from '../data/types';
+import type { CustomMeals } from './menu';
 
 /** A source of numbers in [0, 1). `Math.random` in the app, seeded in tests. */
 export type Rng = () => number;
@@ -90,4 +91,31 @@ export function bowlName(parts: readonly ComponentId[]): string {
   const name = (role: Role) => getComponent(withRole(parts, role)[0] ?? '')?.name;
   const sauce = name('sauce');
   return `${name('protein')} & ${name('bed')}${sauce ? ` with ${sauce}` : ''}`;
+}
+
+/** Seven days over `count` items, as evenly as possible with the larger shares first: 3 → [3, 2, 2]. */
+export function splitDays(count: number): number[] {
+  const n = Math.max(1, Math.min(7, count));
+  return Array.from({ length: n }, (_, i) => Math.floor(7 / n) + (i < 7 % n ? 1 : 0));
+}
+
+/**
+ * A random menu for each slot: `variations` different items of the slot's kind, from presets and your own bowls
+ * (every option once when there are fewer), with the week's days split between them.
+ */
+export function randomWeek(
+  slots: readonly Slot[],
+  customMeals: CustomMeals,
+  variations: number,
+  rng: Rng,
+): Partial<Record<Slot, MenuEntry[]>> {
+  const all = [...PRESET_MEALS, ...Object.values(customMeals)];
+  const menu: Partial<Record<Slot, MenuEntry[]>> = {};
+  for (const slot of slots) {
+    const options = all.filter((m) => m.kind === SLOT_KIND[slot]);
+    const chosen = shuffle(options, rng).slice(0, Math.min(variations, 7));
+    const days = splitDays(chosen.length);
+    menu[slot] = chosen.map((meal, i) => ({ mealId: meal.id, days: days[i] }));
+  }
+  return menu;
 }

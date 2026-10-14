@@ -508,3 +508,40 @@ describe('random swaps', () => {
     expect(checked()).not.toEqual(before);
   });
 });
+
+describe('randomize week', () => {
+  const randomize = (variations = '3') => {
+    fireEvent.click(screen.getByRole('button', { name: 'Randomize week' }));
+    fireEvent.click(screen.getByRole('radio', { name: variations }));
+    fireEvent.click(screen.getByRole('button', { name: 'Randomize' }));
+  };
+
+  it('fills each meal with different random items, and Undo puts the menu back', () => {
+    renderApp('#/menu');
+    expect(stored().menus[1]).toBeUndefined();
+    randomize('2');
+    const week = stored().menus[1];
+    expect(week.dinner!.map((e) => e.days)).toEqual([4, 3]);
+    expect(week.snack!.map((e) => e.days)).toEqual([4, 3]);
+    expect(new Set(week.dinner!.map((e) => e.mealId)).size).toBe(2);
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+    expect(stored().menus[1]).toBeUndefined();
+    expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull();
+  });
+
+  it('can be cancelled', () => {
+    renderApp('#/menu');
+    fireEvent.click(screen.getByRole('button', { name: 'Randomize week' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(stored().menus[1]).toBeUndefined();
+    expect(screen.getByRole('button', { name: 'Randomize week' })).toBeTruthy();
+  });
+
+  it('stops offering Undo once the menu is edited again', () => {
+    renderApp('#/menu');
+    randomize();
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeTruthy();
+    fireEvent.click(within(section('Dinner')).getAllByRole('button', { name: /^Fewer days of / })[0]);
+    expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull();
+  });
+});

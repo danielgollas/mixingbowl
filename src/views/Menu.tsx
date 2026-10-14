@@ -3,9 +3,11 @@ import { BowlEditor } from '../components/BowlEditor';
 import { MenuStats } from '../components/MenuStats';
 import { WeekHeader, useWeek } from '../components/WeekHeader';
 import { PRESET_MEALS, SLOT_KIND, SLOT_LABELS, getPreset } from '../data/meals';
-import type { Meal, MenuEntry, Slot } from '../data/types';
+import type { Meal, MenuEntry, Slot, WeekMenu } from '../data/types';
 import { formatExtras, formatGrams, formatKcal } from '../lib/format';
 import { addEntry, entryDays, findMeal, householdMeals, plannedDays, resolveEntries } from '../lib/menu';
+import { randomWeek } from '../lib/random';
+import { stableStringify } from '../lib/sync';
 import { mealNutrition } from '../lib/nutrition';
 import { hrefFor } from '../router';
 import { useAppState } from '../state';
@@ -20,6 +22,7 @@ export function Menu({ week: routeWeek }: { week: number | null }) {
     <>
       <WeekHeader page="menu" title="Menu" week={week} />
       <MenuStats week={week} />
+      <RandomizeWeek week={week} />
       {householdMeals(data.people).map((slot) => (
         <MenuSection key={slot} week={week} slot={slot} />
       ))}
@@ -28,6 +31,73 @@ export function Menu({ week: routeWeek }: { week: number | null }) {
         previous week's menu.
       </p>
     </>
+  );
+}
+
+const VARIATIONS = [2, 3, 4];
+
+/** Replaces the week's menu with random picks, with an Undo until the menu changes again. */
+function RandomizeWeek({ week }: { week: number }) {
+  const { data, replaceWeekMenu } = useAppState();
+  const [asking, setAsking] = useState(false);
+  const [variations, setVariations] = useState(3);
+  const [undo, setUndo] = useState<{ week: number; previous: WeekMenu | null; applied: string } | null>(null);
+  const current = data.menus[week];
+  const canUndo = undo !== null && undo.week === week && stableStringify(current ?? null) === undo.applied;
+
+  const randomize = () => {
+    const picks = randomWeek(householdMeals(data.people), data.customMeals, variations, Math.random);
+    const menu: WeekMenu = { ...current, ...picks };
+    setUndo({ week, previous: current ?? null, applied: stableStringify(menu) });
+    replaceWeekMenu(week, menu);
+    setAsking(false);
+  };
+
+  if (asking) {
+    return (
+      <div class="card confirm randomize" role="group" aria-labelledby="randomize-title">
+        <p id="randomize-title">Replace this week's menu with random picks from the presets and your own bowls?</p>
+        <fieldset class="field">
+          <legend>Variations per meal</legend>
+          <div class="segmented">
+            {VARIATIONS.map((n) => (
+              <label key={n}>
+                <input type="radio" name="variations" checked={variations === n} onChange={() => setVariations(n)} />
+                <span>{n}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        <div class="entry-actions">
+          <button type="button" class="button-secondary" onClick={randomize}>
+            Randomize
+          </button>
+          <button type="button" class="button-secondary" onClick={() => setAsking(false)}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div class="entry-actions randomize">
+      <button type="button" class="button-secondary" onClick={() => setAsking(true)}>
+        <span aria-hidden="true">🎲 </span>Randomize week
+      </button>
+      {canUndo && (
+        <button
+          type="button"
+          class="button-link"
+          onClick={() => {
+            replaceWeekMenu(week, undo.previous);
+            setUndo(null);
+          }}
+        >
+          Undo
+        </button>
+      )}
+    </div>
   );
 }
 

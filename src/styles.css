@@ -1111,3 +1111,7 @@ a.prompt {
   justify-self: start;
   text-align: left;
 }
+
+.randomize {
+  align-items: center;
+}
