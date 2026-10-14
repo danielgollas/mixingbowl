@@ -41,6 +41,8 @@ export interface AppState {
   replaceWeekMenu(week: number, menu: WeekMenu | null): void;
   /** Adds or replaces one of your own bowls. */
   saveCustomMeal(meal: Meal): void;
+  /** Deletes one of your own bowls unless a week's menu uses it. */
+  deleteCustomMeal(id: string): void;
   togglePrep(week: number, componentId: string): void;
   toggleShopping(week: number, foodId: string): void;
   clearShopping(week: number): void;
@@ -144,6 +146,12 @@ export function AppStateProvider({ children, storage, cloud, syncDelay }: Provid
           return { ...d, menus: menu ? { ...menus, [week]: menu } : menus };
         }),
       saveCustomMeal: (meal) => setData((d) => ({ ...d, customMeals: { ...d.customMeals, [meal.id]: meal } })),
+      deleteCustomMeal: (id) =>
+        setData((d) => {
+          if (menusUsing(d, id).length > 0) return d;
+          const { [id]: _deleted, ...customMeals } = d.customMeals;
+          return { ...d, customMeals };
+        }),
       togglePrep: (week, id) => setData((d) => updateChecks(d, week, (c) => ({ ...c, prep: toggleIn(c.prep, id) }))),
       toggleShopping: (week, id) =>
         setData((d) => updateChecks(d, week, (c) => ({ ...c, shopping: toggleIn(c.shopping, id) }))),
@@ -153,6 +161,14 @@ export function AppStateProvider({ children, storage, cloud, syncDelay }: Provid
   );
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;
+}
+
+/** Program weeks whose own menu uses the meal, in order. */
+export function menusUsing(data: AppData, mealId: string): number[] {
+  return Object.entries(data.menus)
+    .filter(([, menu]) => Object.values(menu).some((entries) => entries?.some((e) => e.mealId === mealId)))
+    .map(([week]) => Number(week))
+    .sort((a, b) => a - b);
 }
 
 function updateChecks(data: AppData, week: number, change: (checks: WeekChecks) => WeekChecks): AppData {

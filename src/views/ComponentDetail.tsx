@@ -3,7 +3,7 @@ import type { Method } from '../data/types';
 import { formatNumber } from '../lib/format';
 import { componentNutrition } from '../lib/nutrition';
 import { ROLE_TITLES, formatPortion } from '../lib/prep';
-import { hrefFor } from '../router';
+import { goBack, hrefFor } from '../router';
 
 const METHOD_LABELS: Record<Method, string> = {
   'air-fryer': 'Air fryer',
@@ -11,14 +11,6 @@ const METHOD_LABELS: Record<Method, string> = {
   blender: 'Blender',
   oven: 'Oven',
   'no-cook': 'No-cook',
-};
-
-// Hash navigation adds history entries, so Back returns to whichever page linked here.
-const goBack = (event: Event) => {
-  if (history.length > 1) {
-    event.preventDefault();
-    history.back();
-  }
 };
 
 export function ComponentDetail({ id }: { id: string }) {

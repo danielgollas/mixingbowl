@@ -4,6 +4,7 @@ import type { StorageLike } from './lib/storage';
 import type { CloudConnector } from './lib/sync';
 import { hrefFor, useHashRoute, type Route } from './router';
 import { AppStateProvider } from './state';
+import { BowlDetail } from './views/BowlDetail';
 import { ComponentDetail } from './views/ComponentDetail';
 import { Menu } from './views/Menu';
 import { Prep } from './views/Prep';
@@ -78,6 +79,8 @@ function View({ route }: { route: Route }) {
       return <Recipes />;
     case 'component':
       return <ComponentDetail id={route.id} />;
+    case 'bowl':
+      return <BowlDetail key={route.id} id={route.id} />;
     case 'settings':
       return <Settings />;
   }

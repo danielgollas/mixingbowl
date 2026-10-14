@@ -51,6 +51,14 @@ export function hrefFor(route: Route): string {
   }
 }
 
+/** Hash navigation adds history entries, so a Back link returns to whichever page linked here. */
+export const goBack = (event: Event) => {
+  if (history.length > 1) {
+    event.preventDefault();
+    history.back();
+  }
+};
+
 /** Current hash route. Hash routing keeps deep links working on GitHub Pages, which has no SPA fallback. */
 export function useHashRoute(): Route {
   const [route, setRoute] = useState(() => parseHash(location.hash));

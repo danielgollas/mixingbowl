@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/preact';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './app';
+import { PRESETS } from './data/meals';
 import { STORAGE_KEY, defaultData, type AppData, type Person, type Settings } from './lib/storage';
 
 const TODAY = '2026-09-14';
@@ -594,5 +595,56 @@ describe('recipes', () => {
     expect(saved).toHaveLength(1);
     expect(saved[0].name).toContain(' & ');
     expect(location.hash).toBe(`#/bowls/${saved[0].id}`);
+  });
+});
+
+describe('bowl page', () => {
+  const mine = { id: 'custom-mine', name: 'Mine', kind: 'bowl' as const, parts: ['soba', 'yuba', 'spicy-mayo'] };
+
+  it('shows a preset’s parts and nutrition, and adds it to a week’s menu', () => {
+    renderApp('#/bowls/crispy-tofu-bowl');
+    expect(heading()).toBe(PRESETS['crispy-tofu-bowl'].name);
+    const parts = within(screen.getByRole('list', { name: 'Parts' })).getAllByRole('link');
+    expect(parts.map((l) => l.getAttribute('href'))).toEqual(
+      PRESETS['crispy-tofu-bowl'].parts.map((id) => `#/components/${id}`),
+    );
+    expect(screen.getByRole('region', { name: 'Nutrition estimate' }).textContent).toContain('kcal');
+    expect(screen.queryByRole('button', { name: /^Delete/ })).toBeNull();
+    const meal = screen.getByLabelText('Meal') as HTMLSelectElement;
+    expect([...meal.options].map((o) => o.textContent)).toEqual(['Lunch', 'Dinner']);
+    fireEvent.change(meal, { target: { value: 'dinner' } });
+    fireEvent.input(screen.getByLabelText('Week'), { target: { value: '2' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add to menu' }));
+    expect(stored().menus[2].dinner!.some((e) => e.mealId === 'crispy-tofu-bowl')).toBe(true);
+    expect(screen.getByRole('status').textContent).toBe('Added to dinner in week 2.');
+  });
+
+  it('offers snack meals for a snack', () => {
+    renderApp('#/bowls/protein-fluff');
+    const meal = screen.getByLabelText('Meal') as HTMLSelectElement;
+    expect([...meal.options].map((o) => o.textContent)).toEqual(['Breakfast', 'Snack']);
+  });
+
+  it('lets you edit and delete your own bowl when no menu uses it', () => {
+    renderApp('#/bowls/custom-mine', {}, { customMeals: { [mine.id]: mine } });
+    expect(screen.getByLabelText('Sauce')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Mine…' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Mine' }));
+    expect(stored().customMeals[mine.id]).toBeUndefined();
+    expect(location.hash).toBe('#/recipes');
+  });
+
+  it('does not offer Delete while a menu uses your bowl', () => {
+    renderApp('#/bowls/custom-mine', {}, {
+      customMeals: { [mine.id]: mine },
+      menus: { 3: { dinner: [{ mealId: mine.id, days: 7 }] } },
+    });
+    expect(screen.queryByRole('button', { name: /^Delete/ })).toBeNull();
+    expect(screen.getByText('Used in the week 3 menu. Remove it there to delete it.')).toBeTruthy();
+  });
+
+  it('says when a recipe does not exist', () => {
+    renderApp('#/bowls/nope');
+    expect(heading()).toBe('Recipe not found');
   });
 });
