@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { App } from './app';
 import { today } from './lib/clock';
 import { STORAGE_KEY, defaultData, newPerson, type AppData } from './lib/storage';
-import { CloudError, EMPTY_META, SYNC_KEY, readMeta, type CloudSession, type Place, type RemoteRecord } from './lib/sync';
+import { CloudError, EMPTY_META, SYNC_KEY, hashData, readMeta, type CloudSession, type Place, type RemoteRecord } from './lib/sync';
 
 /** Invites: 'HOUSE' is Daniel's, 'MINE' is your own, anything else no longer works. */
 function invite(code: string): { owner: string | null } {
@@ -35,15 +35,16 @@ function fakeCloud({ signedIn = false } = {}) {
       setUpAuth: vi.fn(async (): Promise<boolean> => cloud.signedIn),
       whenSignedIn: () => new Promise<void>((resolve) => (onSignIn = resolve)),
       whenSignedOut: () => new Promise<void>((resolve) => (onSignOut = resolve)),
-      fetch: vi.fn(async (): Promise<RemoteRecord | null> => {
-        if (cloud.place.kind === 'member' && cloud.sharedGone)
+      fetch: vi.fn(async (where: Place): Promise<RemoteRecord | null> => {
+        if (where.kind === 'member' && cloud.sharedGone)
           throw new CloudError('gone', 'This plan is no longer shared with you.');
-        return cloud.record;
+        return cloud.slots[where.kind === 'own' ? 'own' : 'shared'];
       }),
-      save: vi.fn(async (json: string, tag: string | null): Promise<RemoteRecord> => {
-        if ((cloud.record?.tag ?? null) !== tag) throw new CloudError('conflict', 'Conflict');
-        cloud.record = { json, savedAt: Date.now(), tag: `t${++n}` };
-        return cloud.record;
+      save: vi.fn(async (where: Place, json: string, tag: string | null): Promise<RemoteRecord> => {
+        const slot = where.kind === 'own' ? 'own' : 'shared';
+        if ((cloud.slots[slot]?.tag ?? null) !== tag) throw new CloudError('conflict', 'Conflict');
+        cloud.slots[slot] = { json, savedAt: Date.now(), tag: `t${++n}` };
+        return cloud.slots[slot]!;
       }),
       place: vi.fn(async (): Promise<Place> => {
         if (cloud.place.kind === 'member' && cloud.sharedGone) cloud.place = { kind: 'own', code: null };
@@ -58,12 +59,12 @@ function fakeCloud({ signedIn = false } = {}) {
         cloud.place = { kind: 'own', code: null };
       }),
       inspect: vi.fn(async (code: string): Promise<{ owner: string | null }> => invite(code)),
-      join: vi.fn(async (code: string): Promise<{ owner: string | null }> => {
+      join: vi.fn(async (code: string): Promise<{ owner: string | null; ownerId: string }> => {
         const found = invite(code);
         cloud.place = { kind: 'member', ownerId: 'u1', owner: found.owner };
-        return found;
+        return { ...found, ownerId: 'u1' };
       }),
-      leave: vi.fn(async (): Promise<void> => {
+      leave: vi.fn(async (_where: Place): Promise<void> => {
         cloud.place = { kind: 'own', code: null };
       }),
     } satisfies CloudSession,
@@ -250,6 +251,30 @@ describe('iCloud sync', () => {
     expect(cloud.session.save).not.toHaveBeenCalled();
   });
 
+  it('keeps an unsynced edit when another device only moved or shared the plan', async () => {
+    const cloud = fakeCloud({ signedIn: true });
+    const base = edited();
+    // Last synced here under tag 'old'; this browser has changed the unit since.
+    localStorage.setItem(SYNC_KEY, JSON.stringify({ tag: 'old', syncedHash: hashData(base), editedAt: 1000, place: 'own' }));
+    const changed: AppData = { ...base, settings: { ...base.settings, unit: 'kg' } };
+    // Later, another device moved the same plan into the zone: new tag, newer save time, same content.
+    cloud.slots.own = { json: JSON.stringify(base), savedAt: 5000, tag: 'moved' };
+    renderSettings(cloud, changed);
+    await synced();
+    expect(cloud.data().settings.unit).toBe('kg');
+    expect(stored().settings.unit).toBe('kg');
+  });
+
+  it('finds the plan again after failing to at sign-in', async () => {
+    const cloud = fakeCloud({ signedIn: true });
+    cloud.session.place.mockRejectedValueOnce(new Error('Network down'));
+    renderSettings(cloud, edited());
+    expect((await screen.findByRole('alert')).textContent).toBe('Network down');
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    await synced();
+    expect(cloud.data()).toEqual(stored());
+  });
+
   it('shows errors and tries again', async () => {
     const cloud = fakeCloud({ signedIn: true });
     cloud.session.fetch.mockRejectedValueOnce(new Error('Network down'));
@@ -360,6 +385,47 @@ describe('household sharing', () => {
     expect(stored().people.map((p) => p.name)).toEqual(['Me', 'Alex']);
   });
 
+  it('never writes the household plan into your own when you leave during a push', async () => {
+    const cloud = fakeCloud({ signedIn: true });
+    cloud.slots.own = { json: JSON.stringify(edited()), savedAt: 1, tag: 'own-1' };
+    cloud.place = { kind: 'member', ownerId: 'u1', owner: 'Daniel' };
+    cloud.saveElsewhere(withAlex());
+    renderSettings(cloud, fresh());
+    await synced();
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const save = cloud.session.save.getMockImplementation()!;
+    cloud.session.save.mockImplementationOnce(async (where, json, tag) => {
+      await gate;
+      return save(where, json, tag);
+    });
+    fireEvent.click(screen.getByRole('radio', { name: 'kg' }));
+    await waitFor(() => expect(cloud.session.save).toHaveBeenCalledTimes(1));
+    fireEvent.click(within(sharing()).getByRole('button', { name: 'Leave' }));
+    const confirm = screen.getByRole('group', { name: 'This browser keeps a copy. Your own iCloud plan is used again.' });
+    fireEvent.click(within(confirm).getByRole('button', { name: 'Leave' }));
+    await waitFor(() => expect(cloud.session.leave).toHaveBeenCalled());
+    release();
+    await screen.findByText(/Your iCloud already has a Mixing Bowl plan/);
+    expect(cloud.slots.own?.tag).toBe('own-1');
+    expect(JSON.parse(cloud.slots.shared!.json).settings.unit).toBe('kg');
+  });
+
+  it('stops and says so when the shared plan stays out of reach', async () => {
+    const cloud = fakeCloud({ signedIn: true });
+    cloud.place = { kind: 'member', ownerId: 'u1', owner: 'Daniel' };
+    cloud.saveElsewhere(withAlex());
+    renderSettings(cloud, fresh());
+    await synced();
+    // iCloud still lists the shared plan but won't hand it over.
+    cloud.session.fetch.mockRejectedValue(new CloudError('gone', 'This plan is no longer shared with you.'));
+    fireEvent.focus(window);
+    expect((await screen.findByRole('alert')).textContent).toBe('This plan is no longer shared with you.');
+    const lookups = cloud.session.place.mock.calls.length;
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(cloud.session.place.mock.calls.length).toBe(lookups);
+  });
+
   it('says so when the owner stops sharing, keeps this browser’s copy and goes back to your own plan', async () => {
     const cloud = fakeCloud({ signedIn: true });
     cloud.place = { kind: 'member', ownerId: 'u1', owner: 'Daniel' };
@@ -408,6 +474,17 @@ describe('joining from an invite link', () => {
     // The household's plan is taken as it is, never overwritten by this browser's.
     expect(cloud.slots.shared).toEqual({ json: JSON.stringify(withAlex()), savedAt: 1, tag: 's1' });
     expect(screen.queryByText(/Your iCloud already has a Mixing Bowl plan/)).toBeNull();
+  });
+
+  it('stays joined even when iCloud doesn’t list the shared plan yet', async () => {
+    const cloud = fakeCloud({ signedIn: true });
+    household(cloud);
+    // Accepted, but the shared database doesn't show the zone yet: looking up places still says your own.
+    cloud.session.join.mockImplementationOnce(async () => ({ owner: 'Daniel', ownerId: 'u1' }));
+    renderJoin(cloud, 'HOUSE');
+    fireEvent.click(await screen.findByRole('button', { name: 'Join' }));
+    await waitFor(() => expect(location.hash).toBe('#/today'));
+    await waitFor(() => expect(stored().people.map((p) => p.name)).toEqual(['Me', 'Alex']));
   });
 
   it('can be put off', async () => {

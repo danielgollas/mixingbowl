@@ -51,6 +51,8 @@ export interface CloudSync {
 
 export const SYNC_DELAY = 1500;
 
+const GONE_PLAN = 'This plan is no longer shared with you.';
+
 const NEWER_DATA = 'Your iCloud has a plan saved by a newer version of Mixing Bowl. Reload the page to update.';
 
 const messageFor = (error: unknown) =>
@@ -85,8 +87,10 @@ export function useCloudSync({ connect, storage, data, replace, delay = SYNC_DEL
   const answer = useRef<'cloud' | 'local' | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const firstData = useRef(true);
-  /** Set when the household plan disappeared mid-sync: find where the plan lives now, then sync again. */
-  const regroup = useRef(false);
+  /** The household plan that disappeared mid-sync: find where the plan lives now, then sync again. */
+  const regroup = useRef<Place | null>(null);
+  const locating = useRef(false);
+  const syncRef = useRef<() => Promise<void>>(async () => undefined);
 
   const moveTo = (next: Place | null) => {
     placeRef.current = next;
@@ -105,12 +109,40 @@ export function useCloudSync({ connect, storage, data, replace, delay = SYNC_DEL
     setStatus(next);
   };
 
+  /** Looks up where the plan lives, then syncs. After `gone`, finding that same shared plan again is an error. */
+  const findPlace = (s: CloudSession, gone: Place | null = null) => {
+    if (locating.current) return;
+    locating.current = true;
+    s.place()
+      .then((next) => {
+        if (!signedInRef.current) return;
+        if (gone && placeId(next) === placeId(gone)) {
+          setError(GONE_PLAN);
+          show('error');
+          return;
+        }
+        moveTo(next);
+        void syncRef.current();
+      })
+      .catch((e: unknown) => {
+        setError(messageFor(e));
+        show('error');
+      })
+      .finally(() => {
+        locating.current = false;
+      });
+  };
+
   /** One sync at a time. `queue` false drops a request made during a sync instead of running it afterwards. */
   const sync = useCallback(
     async (queue = true): Promise<void> => {
       const s = session.current;
       const where = placeRef.current;
-      if (!s || !signedInRef.current || !where) return;
+      if (!s || !signedInRef.current) return;
+      if (!where) {
+        findPlace(s);
+        return;
+      }
       if (statusRef.current === 'ask' && !answer.current) return;
       if (running.current) {
         if (queue) again.current = true;
@@ -123,8 +155,13 @@ export function useCloudSync({ connect, storage, data, replace, delay = SYNC_DEL
       try {
         for (let tries = 1; ; tries++) {
           const meta = metaFor(where);
-          const remote = await s.fetch();
+          const remote = await s.fetch(where);
           if (!signedInRef.current) return;
+          // Switched plans while fetching: start over with the new one.
+          if (placeRef.current !== where) {
+            again.current = true;
+            return;
+          }
           const remoteData = remote ? parseData(remote.json, currentDate()) : null;
           if (remote && !remoteData) throw new Error(NEWER_DATA);
           const local = dataRef.current;
@@ -149,8 +186,9 @@ export function useCloudSync({ connect, storage, data, replace, delay = SYNC_DEL
             replace(remoteData);
           } else if (plan === 'push') {
             try {
-              const saved = await s.save(JSON.stringify(local), remote?.tag ?? null);
+              const saved = await s.save(where, JSON.stringify(local), remote?.tag ?? null);
               writeMeta(storage, { tag: saved.tag, syncedHash: localHash, editedAt: meta.editedAt, place: meta.place });
+              if (placeRef.current !== where) again.current = true;
             } catch (e) {
               // Another device saved since the fetch: look again.
               if (e instanceof CloudError && e.code === 'conflict' && tries < 3) continue;
@@ -167,7 +205,7 @@ export function useCloudSync({ connect, storage, data, replace, delay = SYNC_DEL
         answer.current = null;
         if (e instanceof CloudError && e.code === 'gone' && where.kind === 'member') {
           setNotice('unshared');
-          regroup.current = true;
+          regroup.current = where;
         } else {
           setError(messageFor(e));
           show('error');
@@ -175,17 +213,10 @@ export function useCloudSync({ connect, storage, data, replace, delay = SYNC_DEL
       } finally {
         running.current = false;
         if (regroup.current) {
-          regroup.current = false;
+          const gone = regroup.current;
+          regroup.current = null;
           again.current = false;
-          s.place()
-            .then((next) => {
-              moveTo(next);
-              void sync();
-            })
-            .catch((e: unknown) => {
-              setError(messageFor(e));
-              show('error');
-            });
+          findPlace(s, gone);
         } else if (again.current) {
           again.current = false;
           void sync();
@@ -194,6 +225,7 @@ export function useCloudSync({ connect, storage, data, replace, delay = SYNC_DEL
     },
     [storage, replace],
   );
+  syncRef.current = sync;
 
   // Connect, restore any saved sign-in, then follow sign-ins and sign-outs.
   useEffect(() => {
@@ -204,17 +236,7 @@ export function useCloudSync({ connect, storage, data, replace, delay = SYNC_DEL
       if (!live) return;
       signedInRef.current = true;
       setSignedIn(true);
-      s.place()
-        .then((where) => {
-          if (!live || !signedInRef.current) return;
-          moveTo(where);
-          void sync();
-        })
-        .catch((e: unknown) => {
-          if (!live) return;
-          setError(messageFor(e));
-          show('error');
-        });
+      findPlace(s);
       void s.whenSignedOut().then(() => {
         if (!live) return;
         signedInRef.current = false;
@@ -333,16 +355,16 @@ export function useCloudSync({ connect, storage, data, replace, delay = SYNC_DEL
       },
       inspect: async (code) => signedInSession().inspect(code),
       join: async (code) => {
-        const s = signedInSession();
-        const { owner } = await s.join(code);
-        const next = await s.place();
-        moveTo(next.kind === 'member' ? { ...next, owner: next.owner ?? owner } : next);
+        // Built from the accepted invite: iCloud may not list the shared plan right away.
+        const { owner, ownerId } = await signedInSession().join(code);
+        moveTo({ kind: 'member', ownerId, owner });
         switchPlans();
       },
       leave: async () => {
         const s = signedInSession();
-        await s.leave();
-        moveTo(await s.place());
+        const where = placeRef.current;
+        if (where) await s.leave(where);
+        moveTo({ kind: 'own', code: null });
         switchPlans();
       },
     }),

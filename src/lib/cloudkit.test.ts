@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { RECORD_NAME, RECORD_TYPE, cloudConfig, cloudKitConnector, type CloudKitGlobal } from './cloudkit';
-import { CloudError } from './sync';
+import { CloudError, type Place } from './sync';
 
 const config = { container: 'iCloud.test', apiToken: 'token', environment: 'production' as const };
 
@@ -91,10 +91,10 @@ describe('cloudKitConnector', () => {
     const { CloudKit } = fakeCloudKit({ saveRecords });
     const session = await cloudKitConnector(config, async () => CloudKit)();
     const codeOf = (p: Promise<unknown>) => p.then(() => null, (e: CloudError) => [e.code, e.message]);
-    expect((await codeOf(session.save('{}', 't')))?.[0]).toBe('conflict');
-    expect((await codeOf(session.save('{}', null)))?.[0]).toBe('conflict');
-    expect((await codeOf(session.save('{}', 't')))?.[0]).toBe('auth');
-    expect(await codeOf(session.save('{}', 't'))).toEqual(['other', 'Your iCloud is full.']);
+    expect((await codeOf(session.save(OWN, '{}', 't')))?.[0]).toBe('conflict');
+    expect((await codeOf(session.save(OWN, '{}', null)))?.[0]).toBe('conflict');
+    expect((await codeOf(session.save(OWN, '{}', 't')))?.[0]).toBe('auth');
+    expect(await codeOf(session.save(OWN, '{}', 't'))).toEqual(['other', 'Your iCloud is full.']);
   });
 });
 
@@ -266,30 +266,32 @@ const sessionFor = async (cloud: ReturnType<typeof fakeICloud>, me: string, name
   return session;
 };
 const codeOf = (p: Promise<unknown>) => p.then(() => null, (e: CloudError) => [e.code, e.message]);
+const OWN: Place = { kind: 'own', code: null };
+const MEMBER: Place = { kind: 'member', ownerId: 'u1', owner: null };
 
 describe('your plan in the Household zone', () => {
   it('starts empty, and creates the zone on the first save', async () => {
     const cloud = fakeICloud();
     const session = await sessionFor(cloud, 'me');
-    expect(await session.fetch()).toBeNull();
-    const saved = await session.save('{"a":1}', null);
+    expect(await session.fetch(OWN)).toBeNull();
+    const saved = await session.save(OWN, '{"a":1}', null);
     expect(cloud.zoneOf('me', 'Household')?.get(RECORD_NAME)?.fields.plan.value).toBe('{"a":1}');
-    expect(await session.fetch()).toEqual(saved);
-    expect((await session.save('{"a":2}', saved.tag)).json).toBe('{"a":2}');
-    expect((await codeOf(session.save('{"a":3}', saved.tag)))?.[0]).toBe('conflict');
+    expect(await session.fetch(OWN)).toEqual(saved);
+    expect((await session.save(OWN, '{"a":2}', saved.tag)).json).toBe('{"a":2}');
+    expect((await codeOf(session.save(OWN, '{"a":3}', saved.tag)))?.[0]).toBe('conflict');
   });
 
   it('moves a plan saved by an older version into the zone, keeping when it was saved and the original', async () => {
     const cloud = fakeICloud();
     cloud.seedDefault('me', '{"old":true}', 42);
     const session = await sessionFor(cloud, 'me');
-    const moved = await session.fetch();
+    const moved = await session.fetch(OWN);
     expect(moved).toMatchObject({ json: '{"old":true}', savedAt: 42 });
     expect(cloud.zoneOf('me', 'Household')?.get(RECORD_NAME)?.recordChangeTag).toBe(moved?.tag);
     expect(cloud.zoneOf('me')?.get(RECORD_NAME)?.recordChangeTag).toBe('old');
     // Later fetches read the zone, not the old copy.
-    await session.save('{"new":true}', moved!.tag);
-    expect((await session.fetch())?.json).toBe('{"new":true}');
+    await session.save(OWN, '{"new":true}', moved!.tag);
+    expect((await session.fetch(OWN))?.json).toBe('{"new":true}');
   });
 });
 
@@ -297,7 +299,7 @@ describe('sharing your plan', () => {
   const shared = async () => {
     const cloud = fakeICloud();
     const owner = await sessionFor(cloud, 'u1', 'Daniel');
-    await owner.save('{"plan":"ours"}', null);
+    await owner.save(OWN, '{"plan":"ours"}', null);
     return { cloud, owner };
   };
 
@@ -348,15 +350,15 @@ describe('sharing your plan', () => {
     const { cloud, owner } = await shared();
     const code = await owner.share();
     const member = await sessionFor(cloud, 'u2', 'Dana');
-    expect(await member.join(code)).toEqual({ owner: 'Daniel' });
-    const remote = await member.fetch();
+    expect(await member.join(code)).toEqual({ owner: 'Daniel', ownerId: 'u1' });
+    const remote = await member.fetch(MEMBER);
     expect(remote?.json).toBe('{"plan":"ours"}');
-    await member.save('{"plan":"edited by Dana"}', remote!.tag);
-    expect((await owner.fetch())?.json).toBe('{"plan":"edited by Dana"}');
+    await member.save(MEMBER, '{"plan":"edited by Dana"}', remote!.tag);
+    expect((await owner.fetch(OWN))?.json).toBe('{"plan":"edited by Dana"}');
 
     const otherDevice = await sessionFor(cloud, 'u2', 'Dana');
     expect(await otherDevice.place()).toEqual({ kind: 'member', ownerId: 'u1', owner: null });
-    expect((await otherDevice.fetch())?.json).toBe('{"plan":"edited by Dana"}');
+    expect((await otherDevice.fetch(MEMBER))?.json).toBe('{"plan":"edited by Dana"}');
   });
 
   it('says the plan is gone when the owner stops sharing', async () => {
@@ -365,19 +367,59 @@ describe('sharing your plan', () => {
     const member = await sessionFor(cloud, 'u2');
     await member.join(code);
     await owner.stopSharing();
-    expect(await codeOf(member.fetch())).toEqual(['gone', 'This plan is no longer shared with you.']);
+    expect(await codeOf(member.fetch(MEMBER))).toEqual(['gone', 'This plan is no longer shared with you.']);
     expect(await member.place()).toEqual({ kind: 'own', code: null });
+  });
+
+  it('reads invites whose details come nested in the share record', async () => {
+    const { cloud, owner } = await shared();
+    const code = await owner.share();
+    const CloudKit = cloud.cloudKitFor('u2', 'Dana');
+    const container = CloudKit.getDefaultContainer() as unknown as Record<string, unknown>;
+    const nested = {
+      results: [
+        {
+          share: {
+            zoneID: { zoneName: 'Household', ownerRecordName: 'u1' },
+            owner: { userIdentity: { nameComponents: { givenName: 'Daniel' } } },
+          },
+          rootRecord: { recordName: RECORD_NAME },
+        },
+      ],
+    };
+    container.fetchRecordInfos = vi.fn(async () => nested);
+    container.acceptShares = vi.fn(async () => {
+      cloud.user('u2').joined.add('u1');
+      return nested;
+    });
+    const member = await cloudKitConnector(config, async () => CloudKit)();
+    await member.setUpAuth();
+    expect(await member.inspect(code)).toEqual({ owner: 'Daniel' });
+    expect(await member.join(code)).toEqual({ owner: 'Daniel', ownerId: 'u1' });
+    expect((await member.fetch(MEMBER))?.json).toBe('{"plan":"ours"}');
+  });
+
+  it('reads and writes whichever plan it is given, whatever it last looked up', async () => {
+    const { cloud, owner } = await shared();
+    const code = await owner.share();
+    const member = await sessionFor(cloud, 'u2');
+    await member.save(OWN, '{"plan":"mine"}', null);
+    await member.join(code);
+    // Your own plan is still reachable after joining, and the household's after looking up places.
+    expect((await member.fetch(OWN))?.json).toBe('{"plan":"mine"}');
+    await member.place();
+    expect((await member.fetch(MEMBER))?.json).toBe('{"plan":"ours"}');
   });
 
   it('leaves, and goes back to your own plan', async () => {
     const { cloud, owner } = await shared();
     const code = await owner.share();
     const member = await sessionFor(cloud, 'u2');
-    await member.save('{"plan":"mine"}', null);
+    await member.save(OWN, '{"plan":"mine"}', null);
     await member.join(code);
-    await member.leave();
+    await member.leave(MEMBER);
     expect(cloud.user('u2').joined.size).toBe(0);
-    expect((await member.fetch())?.json).toBe('{"plan":"mine"}');
+    expect((await member.fetch(OWN))?.json).toBe('{"plan":"mine"}');
     expect(await member.place()).toEqual({ kind: 'own', code: null });
   });
 });

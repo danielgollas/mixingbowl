@@ -84,6 +84,12 @@ describe('reconcile', () => {
     expect(plan(linked, 'local-0', remote('t2'))).toBe('adopt');
   });
 
+  it('treats a new tag with the same content as unchanged, as after a move or a share', () => {
+    // Remote still holds what was last synced here, under a new tag; the newer save time must not beat a local edit.
+    expect(plan(linked, 'local-1', remote('t2', 9999, 'local-0'))).toBe('push');
+    expect(plan(linked, 'local-0', remote('t2', 9999, 'local-0'))).toBe('adopt');
+  });
+
   it('lets the newer side win when both changed', () => {
     expect(plan(linked, 'local-1', remote('t2', 2000))).toBe('adopt');
     expect(plan(linked, 'local-1', remote('t2', 999))).toBe('push');

@@ -17,11 +17,11 @@ export interface CloudSession {
   whenSignedIn(): Promise<void>;
   /** Resolves the next time the user signs out. */
   whenSignedOut(): Promise<void>;
-  /** The saved record, or null if there is none yet. */
-  fetch(): Promise<RemoteRecord | null>;
+  /** The plan's record at this place, or null if there is none yet. Throws 'gone' when a shared plan is no longer shared. */
+  fetch(place: Place): Promise<RemoteRecord | null>;
   /** Saves over the record with this change tag, or creates it when the tag is null. Throws a conflict otherwise. */
-  save(json: string, tag: string | null): Promise<RemoteRecord>;
-  /** Finds where the signed-in user's plan lives; `fetch` and `save` use it from then on. */
+  save(place: Place, json: string, tag: string | null): Promise<RemoteRecord>;
+  /** Finds where the signed-in user's plan lives. */
   place(): Promise<Place>;
   /** Shares your own plan, or returns the existing share's code. */
   share(): Promise<string>;
@@ -29,10 +29,10 @@ export interface CloudSession {
   stopSharing(): Promise<void>;
   /** Looks an invite up without accepting it. Throws 'gone' for a dead link and 'own' for your own. */
   inspect(code: string): Promise<{ owner: string | null }>;
-  /** Accepts an invite; the session then uses that shared plan. Same errors as `inspect`. */
-  join(code: string): Promise<{ owner: string | null }>;
-  /** Leaves the shared plan; the session then uses your own plan again. */
-  leave(): Promise<void>;
+  /** Accepts an invite. Same errors as `inspect`. */
+  join(code: string): Promise<{ owner: string | null; ownerId: string }>;
+  /** Leaves this shared plan. */
+  leave(place: Place): Promise<void>;
 }
 
 /** Where the plan lives: your own iCloud (with its share code, if shared), or someone else's shared plan. */
@@ -139,9 +139,10 @@ export interface ReconcileInput {
 export function reconcile({ meta, localHash, localUntouched, remote }: ReconcileInput): SyncPlan {
   if (!remote) return 'push';
   if (meta.tag === null) return remote.hash === localHash || localUntouched ? 'adopt' : 'ask';
-  const remoteChanged = remote.tag !== meta.tag;
+  // A new tag over the content last synced here (the plan was moved or shared) is not a change.
+  const remoteChanged = remote.tag !== meta.tag && remote.hash !== meta.syncedHash;
   const localChanged = localHash !== meta.syncedHash;
-  if (!remoteChanged) return localChanged ? 'push' : 'none';
+  if (!remoteChanged) return localChanged ? 'push' : remote.tag !== meta.tag ? 'adopt' : 'none';
   if (!localChanged) return 'adopt';
   return remote.savedAt > meta.editedAt ? 'adopt' : 'push';
 }
