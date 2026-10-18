@@ -25,7 +25,8 @@ yuba, soy curls…), as many **veg** as you like, a **sauce** and a **topping**.
   maintenance calories (for the deficit).
 
 Everything is saved in the browser's `localStorage`; there is no backend. Optionally, **iCloud sync** keeps the plan
-in your own private iCloud database (CloudKit JS), so you can sign in with your Apple ID on any device.
+in your own private iCloud database (CloudKit JS), so you can sign in with your Apple ID on any device, and
+**household sharing** lets someone else edit the same plan with their own Apple ID.
 
 **On iPhone:** open the live site in Safari, tap Share → **Add to Home Screen**. It opens full screen with its own
 icon and works offline after the first visit (`public/sw.js` keeps the page and its built files). The home screen
@@ -66,6 +67,15 @@ Sync is off until the build has a CloudKit container and web API token.
 
 The token is meant to be public: CloudKit web tokens only work from the allowed origins, and each user only reaches
 their own private database.
+
+### Household sharing
+
+Settings → iCloud sync → **Share plan** gives an invite link (`…/#/join/<code>`). Whoever opens it signs in with
+their own Apple ID and joins; from then on both edit one plan, with the same newer-edit-wins sync. The plan lives in a
+`Household` zone of the owner's private database (plans saved before sharing existed are copied there once; the old
+copy is left as it was) and is shared with a CloudKit share anyone with the link can accept. **Stop sharing** deletes
+the share and everyone who joined goes back to their own plan; **Leave** does that for one person. The record type and
+field are the same, so no schema change is needed beyond step 2.
 
 ## Data
 
