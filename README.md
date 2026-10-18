@@ -27,6 +27,10 @@ yuba, soy curls…), as many **veg** as you like, a **sauce** and a **topping**.
 Everything is saved in the browser's `localStorage`; there is no backend. Optionally, **iCloud sync** keeps the plan
 in your own private iCloud database (CloudKit JS), so you can sign in with your Apple ID on any device.
 
+**On iPhone:** open the live site in Safari, tap Share → **Add to Home Screen**. It opens full screen with its own
+icon and works offline after the first visit (`public/sw.js` keeps the page and its built files). The home screen
+app has its own storage, separate from Safari's, so sign in to iCloud sync there to bring your plan over.
+
 ## Development
 
 Requires Node 22.22.2 or newer (`nvm use`).
