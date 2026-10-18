@@ -1,4 +1,4 @@
-import { CloudError, type CloudConnector, type CloudSession, type RemoteRecord } from './sync';
+import { CloudError, type CloudConnector, type CloudSession, type Place, type RemoteRecord } from './sync';
 
 export const CLOUDKIT_SCRIPT = 'https://cdn.apple-cloudkit.com/ck/2/cloudkit.js';
 export const SIGN_IN_BUTTON_ID = 'apple-sign-in-button';
@@ -7,6 +7,13 @@ export const RECORD_TYPE = 'AppData';
 export const RECORD_NAME = 'mixingbowl';
 /** The record's one String field: the whole plan as JSON. */
 export const PLAN_FIELD = 'plan';
+/** CloudKit only shares records in custom zones, so the plan lives in this one. */
+export const ZONE_NAME = 'Household';
+const SHARE_TYPE = 'cloudkit.share';
+
+const GONE_INVITE = 'This invite no longer works. Ask for a new link.';
+const OWN_INVITE = "This is your own plan's invite link.";
+const GONE_PLAN = 'This plan is no longer shared with you.';
 
 export interface CloudConfig {
   container: string;
@@ -35,26 +42,49 @@ interface CKError {
   reason?: string;
   message?: string;
 }
+interface ZoneID {
+  zoneName: string;
+  ownerRecordName?: string;
+}
 interface CKRecord {
   recordName: string;
+  recordType?: string;
   recordChangeTag: string;
   fields: Record<string, { value: unknown } | undefined>;
   modified?: { timestamp: number };
+  /** Set on a record that is shared. */
+  share?: { recordName: string };
+  /** Set on a share record: the code in its link. */
+  shortGUID?: string;
+}
+interface CKShareInfo extends CKError {
+  zoneID?: ZoneID;
+  ownerIdentity?: { nameComponents?: { givenName?: string } };
 }
 interface CKResponse {
   hasErrors?: boolean;
   errors?: CKError[];
   records?: CKRecord[];
+  zones?: { zoneID: ZoneID }[];
+  results?: CKShareInfo[];
 }
+type Options = { zoneID?: ZoneID };
 interface CKDatabase {
-  fetchRecords(names: string[]): Promise<CKResponse>;
-  saveRecords(records: object[]): Promise<CKResponse>;
+  fetchRecords(names: string[], options?: Options): Promise<CKResponse>;
+  saveRecords(records: object[], options?: Options): Promise<CKResponse>;
+  deleteRecords(records: object[], options?: Options): Promise<CKResponse>;
+  saveRecordZones(zones: ZoneID[]): Promise<CKResponse>;
+  fetchAllRecordZones(): Promise<CKResponse>;
+  deleteRecordZones(zones: ZoneID[]): Promise<CKResponse>;
 }
 interface CKContainer {
   privateCloudDatabase: CKDatabase;
+  sharedCloudDatabase: CKDatabase;
   setUpAuth(): Promise<unknown>;
   whenUserSignsIn(): Promise<unknown>;
   whenUserSignsOut(): Promise<unknown>;
+  fetchRecordInfos(codes: string[]): Promise<CKResponse>;
+  acceptShares(codes: string[]): Promise<CKResponse>;
 }
 export interface CloudKitGlobal {
   configure(config: object): unknown;
@@ -90,19 +120,35 @@ function toCloudError(error: unknown): CloudError {
   return new CloudError('other', message);
 }
 
-/** Runs a request and returns its records, or throws a CloudError. `NOT_FOUND` comes back as an empty list. */
-async function records(request: () => Promise<CKResponse>): Promise<CKRecord[]> {
-  let response: CKResponse;
+const ckCode = (error: unknown): string =>
+  (typeof error === 'object' && error !== null && ((error as CKError).ckErrorCode ?? (error as CKError).serverErrorCode)) || '';
+
+/** Runs a request; throws CloudKit's own error, whether it was thrown or reported in the response. */
+async function call(request: () => Promise<CKResponse>): Promise<CKResponse> {
+  const response = await request();
+  const error = response.hasErrors ? (response.errors?.[0] ?? {}) : undefined;
+  if (error) throw error;
+  return response;
+}
+
+/** Runs a request and returns its records, or throws a CloudError. These codes come back as an empty list. */
+async function records(request: () => Promise<CKResponse>, empty = ['NOT_FOUND']): Promise<CKRecord[]> {
   try {
-    response = await request();
+    return (await call(request)).records ?? [];
   } catch (error) {
-    if ((error as CKError)?.ckErrorCode === 'NOT_FOUND') return [];
+    if (empty.includes(ckCode(error))) return [];
     throw toCloudError(error);
   }
-  const error = response.hasErrors ? response.errors?.[0] : undefined;
-  if (error?.ckErrorCode === 'NOT_FOUND') return [];
-  if (error) throw toCloudError(error);
-  return response.records ?? [];
+}
+
+/** Runs a request against someone else's shared plan; a missing zone or record means sharing stopped. */
+async function sharedRecords(request: () => Promise<CKResponse>): Promise<CKRecord[]> {
+  try {
+    return (await call(request)).records ?? [];
+  } catch (error) {
+    if (['ZONE_NOT_FOUND', 'NOT_FOUND', 'ACCESS_DENIED'].includes(ckCode(error))) throw new CloudError('gone', GONE_PLAN);
+    throw toCloudError(error);
+  }
 }
 
 function toRemote(record: CKRecord | undefined): RemoteRecord | null {
@@ -141,12 +187,68 @@ export function cloudKitConnector(config: CloudConfig, load: () => Promise<Cloud
   };
 }
 
+const userOf = (identity: unknown): string | null =>
+  (typeof identity === 'object' && identity !== null && (identity as { userRecordName?: string }).userRecordName) || null;
+
+const planRecord = (json: string, tag: string | null) => ({
+  recordType: RECORD_TYPE,
+  recordName: RECORD_NAME,
+  ...(tag !== null && { recordChangeTag: tag }),
+  fields: { [PLAN_FIELD]: { value: json } },
+});
+
 function cloudKitSession(container: CKContainer): CloudSession {
-  const db = container.privateCloudDatabase;
+  const mine = container.privateCloudDatabase;
+  const theirs = container.sharedCloudDatabase;
+  const own: ZoneID = { zoneName: ZONE_NAME };
+  /** The signed-in user's record name, to recognise their own invite. */
+  let me: string | null = null;
+  /** The shared zone in use, or null for your own plan. */
+  let joined: ZoneID | null = null;
+  let zoneReady: Promise<unknown> | null = null;
+
+  const ensureZone = () => {
+    zoneReady ??= call(() => mine.saveRecordZones([own])).catch((error: unknown) => {
+      zoneReady = null;
+      throw toCloudError(error);
+    });
+    return zoneReady;
+  };
+
+  const saveOwn = async (json: string, tag: string | null): Promise<RemoteRecord> => {
+    await ensureZone();
+    const saved = (await records(() => mine.saveRecords([planRecord(json, tag)], { zoneID: own }), []))[0];
+    if (!saved?.recordChangeTag) throw new CloudError('other', 'iCloud didn’t confirm the save.');
+    return { json, savedAt: saved.modified?.timestamp ?? Date.now(), tag: saved.recordChangeTag };
+  };
+
+  const ownRoot = async () => (await records(() => mine.fetchRecords([RECORD_NAME], { zoneID: own }), ['NOT_FOUND', 'ZONE_NOT_FOUND']))[0];
+
+  const shareRecord = async (root: CKRecord | undefined) => {
+    if (!root?.share) return undefined;
+    return (await records(() => mine.fetchRecords([root.share!.recordName], { zoneID: own })))[0];
+  };
+
+  /** Who owns the invite with this code; throws 'gone' or 'own'. */
+  const lookUp = async (code: string) => {
+    let info: CKShareInfo | undefined;
+    try {
+      info = (await call(() => container.fetchRecordInfos([code]))).results?.[0];
+    } catch {
+      info = undefined;
+    }
+    const ownerId = info && !ckCode(info) ? info.zoneID?.ownerRecordName : undefined;
+    if (!ownerId) throw new CloudError('gone', GONE_INVITE);
+    if (ownerId === me) throw new CloudError('own', OWN_INVITE);
+    return { ownerId, owner: info?.ownerIdentity?.nameComponents?.givenName ?? null, zoneName: info?.zoneID?.zoneName };
+  };
+
   return {
     setUpAuth: async () => {
       try {
-        return Boolean(await container.setUpAuth());
+        const identity = await container.setUpAuth();
+        me = userOf(identity);
+        return Boolean(identity);
       } catch (error) {
         // Failing here means the container, token or allowed origins are wrong, not that the user must sign in.
         console.error('CloudKit setUpAuth failed', error);
@@ -154,27 +256,94 @@ function cloudKitSession(container: CKContainer): CloudSession {
         throw new CloudError('other', `Couldn't connect to iCloud. ${e.reason || e.message || ''}`.trim());
       }
     },
-    whenSignedIn: () => container.whenUserSignsIn().then(() => undefined),
-    whenSignedOut: () => container.whenUserSignsOut().then(() => undefined),
-    fetch: async () => toRemote((await records(() => db.fetchRecords([RECORD_NAME])))[0]),
+    whenSignedIn: () =>
+      container.whenUserSignsIn().then((identity) => {
+        me = userOf(identity);
+      }),
+    whenSignedOut: () =>
+      container.whenUserSignsOut().then(() => {
+        me = null;
+        joined = null;
+      }),
+    place: async (): Promise<Place> => {
+      const zones = (await call(() => theirs.fetchAllRecordZones()).catch((error: unknown) => {
+        throw toCloudError(error);
+      })).zones ?? [];
+      const shared = zones.find((z) => z.zoneID.zoneName === ZONE_NAME && z.zoneID.ownerRecordName !== me);
+      if (shared?.zoneID.ownerRecordName) {
+        joined = shared.zoneID;
+        return { kind: 'member', ownerId: shared.zoneID.ownerRecordName, owner: null };
+      }
+      joined = null;
+      const share = await shareRecord(await ownRoot());
+      return { kind: 'own', code: share?.shortGUID ?? null };
+    },
+    fetch: async () => {
+      if (joined) {
+        const zoneID = joined;
+        return toRemote((await sharedRecords(() => theirs.fetchRecords([RECORD_NAME], { zoneID })))[0]);
+      }
+      const root = await ownRoot();
+      if (root) return toRemote(root);
+      // A plan saved before zones: copy it in, keeping its save time so newer-edit-wins still compares fairly.
+      const old = toRemote((await records(() => mine.fetchRecords([RECORD_NAME])))[0]);
+      if (!old) return null;
+      const moved = await saveOwn(old.json, null);
+      return { ...moved, savedAt: old.savedAt };
+    },
     save: async (json, tag) => {
-      const record = {
-        recordType: RECORD_TYPE,
-        recordName: RECORD_NAME,
-        ...(tag !== null && { recordChangeTag: tag }),
-        fields: { [PLAN_FIELD]: { value: json } },
-      };
-      const saved = (await records(() => db.saveRecords([record])))[0];
+      if (!joined) return saveOwn(json, tag);
+      const zoneID = joined;
+      const saved = (await sharedRecords(() => theirs.saveRecords([planRecord(json, tag)], { zoneID })))[0];
       if (!saved?.recordChangeTag) throw new CloudError('other', 'iCloud didn’t confirm the save.');
       return { json, savedAt: saved.modified?.timestamp ?? Date.now(), tag: saved.recordChangeTag };
     },
-    place: async () => ({ kind: 'own', code: null }),
-    share: notYet,
-    stopSharing: notYet,
-    inspect: notYet,
-    join: notYet,
-    leave: notYet,
+    share: async () => {
+      const root = await ownRoot();
+      if (!root) throw new CloudError('other', 'Sync your plan with iCloud before sharing it.');
+      const existing = await shareRecord(root);
+      if (existing?.shortGUID) return existing.shortGUID;
+      const share = {
+        recordType: SHARE_TYPE,
+        forRecord: { recordName: root.recordName, recordChangeTag: root.recordChangeTag },
+        publicPermission: 'READ_WRITE',
+        fields: { 'cloudkit.title': { value: 'Mixing Bowl plan' } },
+      };
+      const saved = (await records(() => mine.saveRecords([share], { zoneID: own }), [])).find(
+        (r) => r.recordType === SHARE_TYPE,
+      );
+      if (!saved?.shortGUID) throw new CloudError('other', 'iCloud didn’t create the invite link.');
+      return saved.shortGUID;
+    },
+    stopSharing: async () => {
+      const share = await shareRecord(await ownRoot());
+      if (!share) return;
+      await records(() => mine.deleteRecords([{ recordName: share.recordName }], { zoneID: own }));
+    },
+    inspect: async (code) => ({ owner: (await lookUp(code)).owner }),
+    join: async (code) => {
+      const { ownerId, owner, zoneName } = await lookUp(code);
+      let accepted: CKShareInfo | undefined;
+      try {
+        accepted = (await call(() => container.acceptShares([code]))).results?.[0];
+      } catch (error) {
+        if (['NOT_FOUND', 'ZONE_NOT_FOUND'].includes(ckCode(error))) throw new CloudError('gone', GONE_INVITE);
+        throw toCloudError(error);
+      }
+      if (accepted && ckCode(accepted)) throw new CloudError('gone', GONE_INVITE);
+      joined = accepted?.zoneID ?? { zoneName: zoneName ?? ZONE_NAME, ownerRecordName: ownerId };
+      return { owner };
+    },
+    leave: async () => {
+      if (!joined) return;
+      const zoneID = joined;
+      try {
+        await call(() => theirs.deleteRecordZones([zoneID]));
+      } catch (error) {
+        // Already gone is as good as left.
+        if (!['ZONE_NOT_FOUND', 'NOT_FOUND'].includes(ckCode(error))) throw toCloudError(error);
+      }
+      joined = null;
+    },
   };
 }
-
-const notYet = (): Promise<never> => Promise.reject(new CloudError('other', 'Not available yet.'));
