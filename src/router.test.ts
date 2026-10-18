@@ -15,6 +15,7 @@ const ROUTES: [string, Route][] = [
   ['#/settings', { name: 'settings' }],
   ['#/recipes', { name: 'recipes' }],
   ['#/bowls/crispy-tofu-bowl', { name: 'bowl', id: 'crispy-tofu-bowl' }],
+  ['#/join/AB12cd', { name: 'join', code: 'AB12cd' }],
 ];
 
 describe('parseHash', () => {

@@ -9,6 +9,7 @@ export type Route =
   | { name: 'component'; id: string }
   | { name: 'bowl'; id: string }
   | { name: 'recipes' }
+  | { name: 'join'; code: string }
   | { name: 'settings' };
 
 const WEEK_PAGES: readonly string[] = ['menu', 'prep', 'shopping', 'print'] satisfies WeekPage[];
@@ -20,12 +21,15 @@ export function parseHash(hash: string): Route | null {
   if (!match) return null;
   const [page, param, ...rest] = match[1].split('/');
   if (rest.length > 0) return null;
-  if ((page === 'components' || page === 'bowls') && param) {
+  if ((page === 'components' || page === 'bowls' || page === 'join') && param) {
+    let value: string;
     try {
-      return { name: page === 'bowls' ? 'bowl' : 'component', id: decodeURIComponent(param) };
+      value = decodeURIComponent(param);
     } catch {
       return null; // malformed escape such as "%"
     }
+    if (page === 'join') return { name: 'join', code: value };
+    return { name: page === 'bowls' ? 'bowl' : 'component', id: value };
   }
   if (WEEK_PAGES.includes(page)) {
     if (param === undefined) return { name: page as WeekPage, week: null };
@@ -41,6 +45,8 @@ export function hrefFor(route: Route): string {
       return `#/components/${encodeURIComponent(route.id)}`;
     case 'bowl':
       return `#/bowls/${encodeURIComponent(route.id)}`;
+    case 'join':
+      return `#/join/${encodeURIComponent(route.code)}`;
     case 'menu':
     case 'prep':
     case 'shopping':

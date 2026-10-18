@@ -10,6 +10,7 @@ import { Menu } from './views/Menu';
 import { Prep } from './views/Prep';
 import { PrintWeek } from './views/PrintWeek';
 import { Recipes } from './views/Recipes';
+import { Join } from './views/Join';
 import { Settings } from './views/Settings';
 import { Shopping } from './views/Shopping';
 import { Today } from './views/Today';
@@ -81,6 +82,8 @@ function View({ route }: { route: Route }) {
       return <ComponentDetail id={route.id} />;
     case 'bowl':
       return <BowlDetail key={route.id} id={route.id} />;
+    case 'join':
+      return <Join key={route.code} code={route.code} />;
     case 'settings':
       return <Settings />;
   }

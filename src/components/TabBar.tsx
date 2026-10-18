@@ -72,8 +72,14 @@ const tabHref = (page: Page): string =>
   page === 'menu' || page === 'prep' || page === 'shopping' ? hrefFor({ name: page, week: null }) : hrefFor({ name: page });
 
 export function TabBar({ route }: { route: Route }) {
-  const current: Page =
-    route.name === 'component' || route.name === 'bowl' ? 'recipes' : route.name === 'print' ? 'prep' : route.name;
+  const current: Page | null =
+    route.name === 'join'
+      ? null
+      : route.name === 'component' || route.name === 'bowl'
+        ? 'recipes'
+        : route.name === 'print'
+          ? 'prep'
+          : route.name;
   return (
     <nav class="tabbar" aria-label="Main">
       {TABS.map((tab) => (

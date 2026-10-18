@@ -376,3 +376,77 @@ describe('household sharing', () => {
     expect(screen.getByRole('button', { name: 'Share plan' })).toBeTruthy();
   });
 });
+
+describe('joining from an invite link', () => {
+  function renderJoin(cloud: ReturnType<typeof fakeCloud> | null, code: string, local = edited()) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(local));
+    history.replaceState(null, '', `#/join/${code}`);
+    return render(<App cloud={cloud?.connect ?? null} syncDelay={0} />);
+  }
+  const household = (cloud: ReturnType<typeof fakeCloud>) => {
+    cloud.slots.shared = { json: JSON.stringify(withAlex()), savedAt: 1, tag: 's1' };
+  };
+
+  it('asks you to sign in first', async () => {
+    const cloud = fakeCloud();
+    renderJoin(cloud, 'HOUSE');
+    expect(await screen.findByText('Sign in with your Apple ID to join a shared Mixing Bowl plan.')).toBeTruthy();
+    expect(document.getElementById('apple-sign-in-button')).toBeTruthy();
+    expect(cloud.session.inspect).not.toHaveBeenCalled();
+  });
+
+  it('joins after you confirm, takes the shared plan without asking and opens Today', async () => {
+    const cloud = fakeCloud({ signedIn: true });
+    household(cloud);
+    renderJoin(cloud, 'HOUSE');
+    expect(await screen.findByRole('heading', { name: "Join Daniel's plan?" })).toBeTruthy();
+    expect(screen.getByText('This replaces the plan in this browser.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Join' }));
+    await waitFor(() => expect(location.hash).toBe('#/today'));
+    await waitFor(() => expect(stored().people.map((p) => p.name)).toEqual(['Me', 'Alex']));
+    expect(cloud.session.join).toHaveBeenCalledWith('HOUSE');
+    // The household's plan is taken as it is, never overwritten by this browser's.
+    expect(cloud.slots.shared).toEqual({ json: JSON.stringify(withAlex()), savedAt: 1, tag: 's1' });
+    expect(screen.queryByText(/Your iCloud already has a Mixing Bowl plan/)).toBeNull();
+  });
+
+  it('can be put off', async () => {
+    const cloud = fakeCloud({ signedIn: true });
+    renderJoin(cloud, 'HOUSE');
+    fireEvent.click(await screen.findByRole('button', { name: 'Not now' }));
+    await waitFor(() => expect(location.hash).toBe('#/today'));
+    expect(cloud.session.join).not.toHaveBeenCalled();
+  });
+
+  it('says when the invite no longer works', async () => {
+    renderJoin(fakeCloud({ signedIn: true }), 'DEAD');
+    expect(await screen.findByText('This invite no longer works. Ask for a new link.')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Join' })).toBeNull();
+  });
+
+  it('recognises your own invite', async () => {
+    renderJoin(fakeCloud({ signedIn: true }), 'MINE');
+    expect(await screen.findByText("This is your own plan's invite link.")).toBeTruthy();
+  });
+
+  it('says when you already use a shared plan', async () => {
+    const cloud = fakeCloud({ signedIn: true });
+    cloud.place = { kind: 'member', ownerId: 'u1', owner: 'Daniel' };
+    household(cloud);
+    renderJoin(cloud, 'HOUSE');
+    expect(await screen.findByText("You're already using a shared plan. Leave it in Settings to join a different one.")).toBeTruthy();
+    expect(cloud.session.inspect).not.toHaveBeenCalled();
+  });
+
+  it('explains when this version has no iCloud sync', () => {
+    renderJoin(null, 'HOUSE');
+    expect(screen.getByText("iCloud sync isn't set up in this version.")).toBeTruthy();
+  });
+
+  it('marks no tab as current', async () => {
+    renderJoin(fakeCloud(), 'HOUSE');
+    await screen.findByText('Sign in with your Apple ID to join a shared Mixing Bowl plan.');
+    const tabs = within(screen.getByRole('navigation')).getAllByRole('link');
+    expect(tabs.filter((tab) => tab.getAttribute('aria-current') === 'page')).toHaveLength(0);
+  });
+});
