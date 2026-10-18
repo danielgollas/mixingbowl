@@ -51,6 +51,10 @@ export function hrefFor(route: Route): string {
   }
 }
 
+/** The full address of the Join page for an invite code, to send to someone. */
+export const joinLink = (code: string, base = `${location.origin}${import.meta.env.BASE_URL}`): string =>
+  `${base}#/join/${encodeURIComponent(code)}`;
+
 /** Hash navigation adds history entries, so a Back link returns to whichever page linked here. */
 export const goBack = (event: Event) => {
   if (history.length > 1) {

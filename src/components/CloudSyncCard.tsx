@@ -1,6 +1,7 @@
 import { useEffect } from 'preact/hooks';
 import { SIGN_IN_BUTTON_ID, SIGN_OUT_BUTTON_ID } from '../lib/cloudkit';
 import { useAppState } from '../state';
+import { HouseholdSharing } from './HouseholdSharing';
 
 const timeFormat = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' });
 
@@ -64,6 +65,8 @@ export function CloudSyncCard() {
           </button>
         </>
       )}
+
+      {signedIn && <HouseholdSharing sync={sync} />}
 
       {status !== 'connecting' &&
         (signedIn ? (

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hrefFor, parseHash, type Route } from './router';
+import { hrefFor, joinLink, parseHash, type Route } from './router';
 
 const ROUTES: [string, Route][] = [
   ['#/today', { name: 'today' }],
@@ -30,5 +30,12 @@ describe('parseHash', () => {
 describe('hrefFor', () => {
   it.each(ROUTES)('builds %s', (hash, route) => {
     expect(hrefFor(route)).toBe(hash);
+  });
+});
+
+describe('joinLink', () => {
+  it('links to the Join page for an invite code', () => {
+    expect(joinLink('AB12cd', 'https://example.github.io/mixingbowl/')).toBe('https://example.github.io/mixingbowl/#/join/AB12cd');
+    expect(joinLink('a/b', 'https://x.test/')).toBe('https://x.test/#/join/a%2Fb');
   });
 });

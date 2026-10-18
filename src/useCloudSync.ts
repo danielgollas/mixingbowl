@@ -35,6 +35,18 @@ export interface CloudSync {
   keepLocal(): void;
   /** Draws Apple's sign-in or sign-out button into the elements now on the page. */
   drawButtons(): void;
+  /** 'unshared' after the household plan you used stopped being shared. */
+  notice: 'unshared' | null;
+  /** Shares your own plan; `place.code` then holds the invite code. Throws on failure. */
+  share(): Promise<void>;
+  /** Stops sharing your plan. Throws on failure. */
+  stopSharing(): Promise<void>;
+  /** Looks an invite up for the Join page. Throws 'gone' or 'own' CloudErrors. */
+  inspect(code: string): Promise<{ owner: string | null }>;
+  /** Joins the shared plan and takes it over this browser's. Throws on failure. */
+  join(code: string): Promise<void>;
+  /** Leaves the shared plan and syncs with your own again. Throws on failure. */
+  leave(): Promise<void>;
 }
 
 export const SYNC_DELAY = 1500;
@@ -57,6 +69,7 @@ export function useCloudSync({ connect, storage, data, replace, delay = SYNC_DEL
   const [status, setStatus] = useState<SyncStatus>(connect ? 'connecting' : 'off');
   const [signedIn, setSignedIn] = useState(false);
   const [place, setPlace] = useState<Place | null>(null);
+  const [notice, setNotice] = useState<'unshared' | null>(null);
   const [lastSynced, setLastSynced] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -72,6 +85,8 @@ export function useCloudSync({ connect, storage, data, replace, delay = SYNC_DEL
   const answer = useRef<'cloud' | 'local' | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const firstData = useRef(true);
+  /** Set when the household plan disappeared mid-sync: find where the plan lives now, then sync again. */
+  const regroup = useRef(false);
 
   const moveTo = (next: Place | null) => {
     placeRef.current = next;
@@ -150,11 +165,28 @@ export function useCloudSync({ connect, storage, data, replace, delay = SYNC_DEL
         }
       } catch (e) {
         answer.current = null;
-        setError(messageFor(e));
-        show('error');
+        if (e instanceof CloudError && e.code === 'gone' && where.kind === 'member') {
+          setNotice('unshared');
+          regroup.current = true;
+        } else {
+          setError(messageFor(e));
+          show('error');
+        }
       } finally {
         running.current = false;
-        if (again.current) {
+        if (regroup.current) {
+          regroup.current = false;
+          again.current = false;
+          s.place()
+            .then((next) => {
+              moveTo(next);
+              void sync();
+            })
+            .catch((e: unknown) => {
+              setError(messageFor(e));
+              show('error');
+            });
+        } else if (again.current) {
           again.current = false;
           void sync();
         }
@@ -188,6 +220,7 @@ export function useCloudSync({ connect, storage, data, replace, delay = SYNC_DEL
         signedInRef.current = false;
         setSignedIn(false);
         moveTo(null);
+        setNotice(null);
         writeMeta(storage, EMPTY_META);
         answer.current = null;
         setLastSynced(null);
@@ -252,6 +285,20 @@ export function useCloudSync({ connect, storage, data, replace, delay = SYNC_DEL
     };
   }, [connect, sync]);
 
+  const signedInSession = (): CloudSession => {
+    if (!session.current || !signedInRef.current) throw new CloudError('auth', 'Sign in to iCloud first.');
+    return session.current;
+  };
+
+  /** After moving to another plan: drop any pending question and sync with the new one. */
+  const switchPlans = () => {
+    answer.current = null;
+    setNotice(null);
+    setError(null);
+    show('syncing');
+    void sync();
+  };
+
   return useMemo<CloudSync>(
     () => ({
       status,
@@ -274,7 +321,31 @@ export function useCloudSync({ connect, storage, data, replace, delay = SYNC_DEL
       drawButtons: () => {
         session.current?.setUpAuth().catch(() => undefined);
       },
+      notice,
+      share: async () => {
+        const code = await signedInSession().share();
+        moveTo({ kind: 'own', code });
+        setNotice(null);
+      },
+      stopSharing: async () => {
+        await signedInSession().stopSharing();
+        moveTo({ kind: 'own', code: null });
+      },
+      inspect: async (code) => signedInSession().inspect(code),
+      join: async (code) => {
+        const s = signedInSession();
+        const { owner } = await s.join(code);
+        const next = await s.place();
+        moveTo(next.kind === 'member' ? { ...next, owner: next.owner ?? owner } : next);
+        switchPlans();
+      },
+      leave: async () => {
+        const s = signedInSession();
+        await s.leave();
+        moveTo(await s.place());
+        switchPlans();
+      },
     }),
-    [status, signedIn, place, lastSynced, error, sync],
+    [status, signedIn, place, notice, lastSynced, error, sync],
   );
 }

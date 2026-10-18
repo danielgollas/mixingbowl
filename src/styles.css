@@ -1056,6 +1056,25 @@ a.prompt {
   font-weight: 600;
 }
 
+.household {
+  display: grid;
+  gap: 0.75rem;
+  justify-items: start;
+  margin-block: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.household > *,
+.household .field input {
+  margin: 0;
+  width: 100%;
+}
+
+.household > button {
+  width: auto;
+}
+
 .menu-stats {
   display: grid;
   gap: 0.75rem;

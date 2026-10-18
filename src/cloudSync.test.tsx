@@ -1,9 +1,16 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/preact';
-import { describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/preact';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { App } from './app';
 import { today } from './lib/clock';
 import { STORAGE_KEY, defaultData, newPerson, type AppData } from './lib/storage';
 import { CloudError, EMPTY_META, SYNC_KEY, readMeta, type CloudSession, type Place, type RemoteRecord } from './lib/sync';
+
+/** Invites: 'HOUSE' is Daniel's, 'MINE' is your own, anything else no longer works. */
+function invite(code: string): { owner: string | null } {
+  if (code === 'HOUSE') return { owner: 'Daniel' };
+  if (code === 'MINE') throw new CloudError('own', "This is your own plan's invite link.");
+  throw new CloudError('gone', 'This invite no longer works. Ask for a new link.');
+}
 
 /** A pretend iCloud account. */
 function fakeCloud({ signedIn = false } = {}) {
@@ -12,24 +19,53 @@ function fakeCloud({ signedIn = false } = {}) {
   let onSignOut: (() => void) | null = null;
   const cloud = {
     signedIn,
-    record: null as RemoteRecord | null,
+    /** Your own plan and the household plan you joined. `record` is whichever the session is using. */
+    slots: { own: null as RemoteRecord | null, shared: null as RemoteRecord | null },
+    get record(): RemoteRecord | null {
+      return cloud.place.kind === 'own' ? cloud.slots.own : cloud.slots.shared;
+    },
+    set record(value: RemoteRecord | null) {
+      if (cloud.place.kind === 'own') cloud.slots.own = value;
+      else cloud.slots.shared = value;
+    },
     place: { kind: 'own', code: null } as Place,
+    /** The owner stopped sharing. */
+    sharedGone: false,
     session: {
       setUpAuth: vi.fn(async (): Promise<boolean> => cloud.signedIn),
       whenSignedIn: () => new Promise<void>((resolve) => (onSignIn = resolve)),
       whenSignedOut: () => new Promise<void>((resolve) => (onSignOut = resolve)),
-      fetch: vi.fn(async (): Promise<RemoteRecord | null> => cloud.record),
+      fetch: vi.fn(async (): Promise<RemoteRecord | null> => {
+        if (cloud.place.kind === 'member' && cloud.sharedGone)
+          throw new CloudError('gone', 'This plan is no longer shared with you.');
+        return cloud.record;
+      }),
       save: vi.fn(async (json: string, tag: string | null): Promise<RemoteRecord> => {
         if ((cloud.record?.tag ?? null) !== tag) throw new CloudError('conflict', 'Conflict');
         cloud.record = { json, savedAt: Date.now(), tag: `t${++n}` };
         return cloud.record;
       }),
-      place: vi.fn(async (): Promise<Place> => cloud.place),
-      share: vi.fn(async (): Promise<string> => Promise.reject(new Error('unused'))),
-      stopSharing: vi.fn(async (): Promise<void> => Promise.reject(new Error('unused'))),
-      inspect: vi.fn(async (_code: string): Promise<{ owner: string | null }> => Promise.reject(new Error('unused'))),
-      join: vi.fn(async (_code: string): Promise<{ owner: string | null }> => Promise.reject(new Error('unused'))),
-      leave: vi.fn(async (): Promise<void> => Promise.reject(new Error('unused'))),
+      place: vi.fn(async (): Promise<Place> => {
+        if (cloud.place.kind === 'member' && cloud.sharedGone) cloud.place = { kind: 'own', code: null };
+        // A device that finds the shared plan by itself doesn't learn the owner's name.
+        return cloud.place.kind === 'member' ? { ...cloud.place, owner: null } : cloud.place;
+      }),
+      share: vi.fn(async (): Promise<string> => {
+        cloud.place = { kind: 'own', code: 'CODE1' };
+        return 'CODE1';
+      }),
+      stopSharing: vi.fn(async (): Promise<void> => {
+        cloud.place = { kind: 'own', code: null };
+      }),
+      inspect: vi.fn(async (code: string): Promise<{ owner: string | null }> => invite(code)),
+      join: vi.fn(async (code: string): Promise<{ owner: string | null }> => {
+        const found = invite(code);
+        cloud.place = { kind: 'member', ownerId: 'u1', owner: found.owner };
+        return found;
+      }),
+      leave: vi.fn(async (): Promise<void> => {
+        cloud.place = { kind: 'own', code: null };
+      }),
     } satisfies CloudSession,
     connect: () => Promise.resolve(cloud.session),
     signIn(): void {
@@ -222,5 +258,121 @@ describe('iCloud sync', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
     await synced();
     expect(cloud.data()).toEqual(stored());
+  });
+});
+
+const sharing = () => screen.getByRole('group', { name: 'Household sharing' });
+
+describe('household sharing', () => {
+  const clipboard = (writeText: ((text: string) => Promise<void>) | null) =>
+    Object.defineProperty(navigator, 'clipboard', { value: writeText && { writeText }, configurable: true });
+  const share = (fn: ((data: ShareData) => Promise<void>) | null) =>
+    Object.defineProperty(navigator, 'share', { value: fn ?? undefined, configurable: true });
+  afterEach(() => {
+    clipboard(null);
+    share(null);
+  });
+
+  it('shares your plan with a link you can copy', async () => {
+    const writeText = vi.fn(async () => undefined);
+    clipboard(writeText);
+    const cloud = fakeCloud({ signedIn: true });
+    renderSettings(cloud, edited());
+    await synced();
+    fireEvent.click(screen.getByRole('button', { name: 'Share plan' }));
+    const link = (await screen.findByRole('textbox', { name: 'Invite link' })) as HTMLInputElement;
+    expect(link.value).toBe(`${location.origin}${import.meta.env.BASE_URL}#/join/CODE1`);
+    expect(link.readOnly).toBe(true);
+    expect(sharing().textContent).toContain('Shared — anyone with the link can join.');
+    fireEvent.click(screen.getByRole('button', { name: 'Copy link' }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(link.value));
+    expect(await screen.findByText('Copied')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Share…' })).toBeNull();
+  });
+
+  it('offers the system share sheet where the browser has one', async () => {
+    const shareSheet = vi.fn(async () => undefined);
+    share(shareSheet);
+    const cloud = fakeCloud({ signedIn: true });
+    cloud.place = { kind: 'own', code: 'CODE1' };
+    renderSettings(cloud, edited());
+    await synced();
+    expect(screen.queryByRole('button', { name: 'Copy link' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Share…' }));
+    expect(shareSheet).toHaveBeenCalledWith({ title: 'Mixing Bowl', url: expect.stringMatching(/#\/join\/CODE1$/) });
+  });
+
+  it('only offers Share plan once the plan is synced', async () => {
+    const cloud = fakeCloud({ signedIn: true });
+    cloud.saveElsewhere(withAlex());
+    renderSettings(cloud, edited());
+    await screen.findByText(/Your iCloud already has a Mixing Bowl plan/);
+    expect((screen.getByRole('button', { name: 'Share plan' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('stops sharing after you confirm', async () => {
+    const cloud = fakeCloud({ signedIn: true });
+    cloud.place = { kind: 'own', code: 'CODE1' };
+    renderSettings(cloud, edited());
+    await synced();
+    fireEvent.click(within(sharing()).getByRole('button', { name: 'Stop sharing' }));
+    const confirm = screen.getByRole('group', { name: 'Everyone who joined loses access. Your plan stays as it is.' });
+    fireEvent.click(within(confirm).getByRole('button', { name: 'Stop sharing' }));
+    expect(await screen.findByRole('button', { name: 'Share plan' })).toBeTruthy();
+    expect(cloud.session.stopSharing).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('textbox', { name: 'Invite link' })).toBeNull();
+  });
+
+  it('shows what went wrong when sharing fails', async () => {
+    const cloud = fakeCloud({ signedIn: true });
+    cloud.session.share.mockRejectedValueOnce(new CloudError('other', 'iCloud is busy.'));
+    renderSettings(cloud, edited());
+    await synced();
+    fireEvent.click(screen.getByRole('button', { name: 'Share plan' }));
+    expect((await within(sharing()).findByRole('alert')).textContent).toBe('iCloud is busy.');
+  });
+
+  it('takes the household plan on a member’s other device, without asking', async () => {
+    const cloud = fakeCloud({ signedIn: true });
+    cloud.place = { kind: 'member', ownerId: 'u1', owner: 'Daniel' };
+    cloud.saveElsewhere(withAlex());
+    renderSettings(cloud, edited());
+    await synced();
+    expect(stored().people.map((p) => p.name)).toEqual(['Me', 'Alex']);
+    expect(cloud.session.save).not.toHaveBeenCalled();
+    expect(sharing().textContent).toContain('Using a shared plan');
+    expect(screen.queryByRole('button', { name: 'Share plan' })).toBeNull();
+  });
+
+  it('leaves the shared plan after you confirm, and goes back to your own', async () => {
+    const cloud = fakeCloud({ signedIn: true });
+    cloud.slots.own = { json: JSON.stringify(edited()), savedAt: 1, tag: 'own-1' };
+    cloud.place = { kind: 'member', ownerId: 'u1', owner: 'Daniel' };
+    cloud.saveElsewhere(withAlex());
+    renderSettings(cloud, fresh());
+    await synced();
+    fireEvent.click(within(sharing()).getByRole('button', { name: 'Leave' }));
+    const confirm = screen.getByRole('group', { name: 'This browser keeps a copy. Your own iCloud plan is used again.' });
+    fireEvent.click(within(confirm).getByRole('button', { name: 'Leave' }));
+    // The household copy here differs from your own iCloud plan, so the usual question comes up.
+    await screen.findByText(/Your iCloud already has a Mixing Bowl plan/);
+    expect(cloud.session.leave).toHaveBeenCalledTimes(1);
+    expect(stored().people.map((p) => p.name)).toEqual(['Me', 'Alex']);
+  });
+
+  it('says so when the owner stops sharing, keeps this browser’s copy and goes back to your own plan', async () => {
+    const cloud = fakeCloud({ signedIn: true });
+    cloud.place = { kind: 'member', ownerId: 'u1', owner: 'Daniel' };
+    cloud.saveElsewhere(withAlex());
+    renderSettings(cloud, fresh());
+    await synced();
+    cloud.sharedGone = true;
+    fireEvent.focus(window);
+    expect(await within(sharing()).findByText('This plan is no longer shared with you.')).toBeTruthy();
+    await synced();
+    expect(stored().people.map((p) => p.name)).toEqual(['Me', 'Alex']);
+    // Your own iCloud had no plan, so this browser's copy becomes it.
+    expect(JSON.parse(cloud.slots.own!.json).people).toHaveLength(2);
+    expect(screen.getByRole('button', { name: 'Share plan' })).toBeTruthy();
   });
 });
