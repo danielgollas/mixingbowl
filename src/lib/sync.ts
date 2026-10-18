@@ -21,11 +21,28 @@ export interface CloudSession {
   fetch(): Promise<RemoteRecord | null>;
   /** Saves over the record with this change tag, or creates it when the tag is null. Throws a conflict otherwise. */
   save(json: string, tag: string | null): Promise<RemoteRecord>;
+  /** Finds where the signed-in user's plan lives; `fetch` and `save` use it from then on. */
+  place(): Promise<Place>;
+  /** Shares your own plan, or returns the existing share's code. */
+  share(): Promise<string>;
+  /** Deletes your plan's share; everyone who joined loses access. */
+  stopSharing(): Promise<void>;
+  /** Looks an invite up without accepting it. Throws 'gone' for a dead link and 'own' for your own. */
+  inspect(code: string): Promise<{ owner: string | null }>;
+  /** Accepts an invite; the session then uses that shared plan. Same errors as `inspect`. */
+  join(code: string): Promise<{ owner: string | null }>;
+  /** Leaves the shared plan; the session then uses your own plan again. */
+  leave(): Promise<void>;
 }
+
+/** Where the plan lives: your own iCloud (with its share code, if shared), or someone else's shared plan. */
+export type Place = { kind: 'own'; code: string | null } | { kind: 'member'; ownerId: string; owner: string | null };
+
+export const placeId = (place: Place): string => (place.kind === 'own' ? 'own' : `shared:${place.ownerId}`);
 
 export type CloudConnector = () => Promise<CloudSession>;
 
-export type CloudErrorCode = 'conflict' | 'auth' | 'other';
+export type CloudErrorCode = 'conflict' | 'auth' | 'gone' | 'own' | 'other';
 
 export class CloudError extends Error {
   constructor(
@@ -77,17 +94,24 @@ export interface SyncMeta {
   syncedHash: string | null;
   /** When this browser last changed the data, in ms. */
   editedAt: number;
+  /** `placeId` of the plan this state belongs to. */
+  place: string;
 }
 
-export const EMPTY_META: SyncMeta = { tag: null, syncedHash: null, editedAt: 0 };
+export const EMPTY_META: SyncMeta = { tag: null, syncedHash: null, editedAt: 0, place: 'own' };
 
 export function readMeta(storage: StorageLike | null): SyncMeta {
   try {
     const raw: unknown = JSON.parse(storage?.getItem(SYNC_KEY) ?? 'null');
     if (typeof raw !== 'object' || raw === null) return EMPTY_META;
-    const { tag, syncedHash, editedAt } = raw as Record<string, unknown>;
+    const { tag, syncedHash, editedAt, place } = raw as Record<string, unknown>;
     if (typeof tag !== 'string' || typeof syncedHash !== 'string') return EMPTY_META;
-    return { tag, syncedHash, editedAt: typeof editedAt === 'number' && Number.isFinite(editedAt) ? editedAt : 0 };
+    return {
+      tag,
+      syncedHash,
+      editedAt: typeof editedAt === 'number' && Number.isFinite(editedAt) ? editedAt : 0,
+      place: typeof place === 'string' && place ? place : 'own',
+    };
   } catch {
     return EMPTY_META;
   }

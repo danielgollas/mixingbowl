@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { App } from './app';
 import { today } from './lib/clock';
 import { STORAGE_KEY, defaultData, newPerson, type AppData } from './lib/storage';
-import { CloudError, EMPTY_META, readMeta, type CloudSession, type RemoteRecord } from './lib/sync';
+import { CloudError, EMPTY_META, SYNC_KEY, readMeta, type CloudSession, type Place, type RemoteRecord } from './lib/sync';
 
 /** A pretend iCloud account. */
 function fakeCloud({ signedIn = false } = {}) {
@@ -13,6 +13,7 @@ function fakeCloud({ signedIn = false } = {}) {
   const cloud = {
     signedIn,
     record: null as RemoteRecord | null,
+    place: { kind: 'own', code: null } as Place,
     session: {
       setUpAuth: vi.fn(async (): Promise<boolean> => cloud.signedIn),
       whenSignedIn: () => new Promise<void>((resolve) => (onSignIn = resolve)),
@@ -23,6 +24,12 @@ function fakeCloud({ signedIn = false } = {}) {
         cloud.record = { json, savedAt: Date.now(), tag: `t${++n}` };
         return cloud.record;
       }),
+      place: vi.fn(async (): Promise<Place> => cloud.place),
+      share: vi.fn(async (): Promise<string> => Promise.reject(new Error('unused'))),
+      stopSharing: vi.fn(async (): Promise<void> => Promise.reject(new Error('unused'))),
+      inspect: vi.fn(async (_code: string): Promise<{ owner: string | null }> => Promise.reject(new Error('unused'))),
+      join: vi.fn(async (_code: string): Promise<{ owner: string | null }> => Promise.reject(new Error('unused'))),
+      leave: vi.fn(async (): Promise<void> => Promise.reject(new Error('unused'))),
     } satisfies CloudSession,
     connect: () => Promise.resolve(cloud.session),
     signIn(): void {
@@ -192,6 +199,18 @@ describe('iCloud sync', () => {
     renderSettings(cloud, edited());
     expect((await screen.findByRole('alert')).textContent).toContain('newer version of Mixing Bowl');
     expect(stored().people).toHaveLength(1);
+    expect(cloud.session.save).not.toHaveBeenCalled();
+  });
+
+  it('starts over when the saved sync state belongs to a different plan', async () => {
+    const cloud = fakeCloud({ signedIn: true });
+    cloud.saveElsewhere(withAlex());
+    const tag = cloud.record!.tag;
+    // This browser last synced with someone else's shared plan, at the same tag.
+    localStorage.setItem(SYNC_KEY, JSON.stringify({ tag, syncedHash: 'x', editedAt: 0, place: 'shared:u2' }));
+    renderSettings(cloud, edited());
+    await screen.findByText(/Your iCloud already has a Mixing Bowl plan/);
+    expect(cloud.session.place).toHaveBeenCalled();
     expect(cloud.session.save).not.toHaveBeenCalled();
   });
 

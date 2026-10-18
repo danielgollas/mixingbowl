@@ -6,11 +6,14 @@ import {
   EMPTY_META,
   hashData,
   isUntouched,
+  placeId,
   readMeta,
   reconcile,
   writeMeta,
   type CloudConnector,
   type CloudSession,
+  type Place,
+  type SyncMeta,
 } from './lib/sync';
 
 export type SyncStatus = 'off' | 'connecting' | 'signed-out' | 'syncing' | 'synced' | 'ask' | 'error';
@@ -19,6 +22,8 @@ export interface CloudSync {
   /** 'off' when this build has no iCloud settings. */
   status: SyncStatus;
   signedIn: boolean;
+  /** Where the signed-in user's plan lives; null until known. */
+  place: Place | null;
   /** When the last sync finished, in ms. */
   lastSynced: number | null;
   error: string | null;
@@ -51,12 +56,14 @@ interface Options {
 export function useCloudSync({ connect, storage, data, replace, delay = SYNC_DELAY }: Options): CloudSync {
   const [status, setStatus] = useState<SyncStatus>(connect ? 'connecting' : 'off');
   const [signedIn, setSignedIn] = useState(false);
+  const [place, setPlace] = useState<Place | null>(null);
   const [lastSynced, setLastSynced] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
 
   const session = useRef<CloudSession | null>(null);
   const signedInRef = useRef(false);
+  const placeRef = useRef<Place | null>(null);
   const statusRef = useRef(status);
   const dataRef = useRef(data);
   dataRef.current = data;
@@ -65,6 +72,18 @@ export function useCloudSync({ connect, storage, data, replace, delay = SYNC_DEL
   const answer = useRef<'cloud' | 'local' | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const firstData = useRef(true);
+
+  const moveTo = (next: Place | null) => {
+    placeRef.current = next;
+    setPlace(next);
+  };
+
+  /** The saved sync state, or a fresh one when it belongs to a different plan. */
+  const metaFor = (where: Place): SyncMeta => {
+    const id = placeId(where);
+    const saved = readMeta(storage);
+    return saved.place === id ? saved : { ...EMPTY_META, place: id };
+  };
 
   const show = (next: SyncStatus) => {
     statusRef.current = next;
@@ -75,7 +94,8 @@ export function useCloudSync({ connect, storage, data, replace, delay = SYNC_DEL
   const sync = useCallback(
     async (queue = true): Promise<void> => {
       const s = session.current;
-      if (!s || !signedInRef.current) return;
+      const where = placeRef.current;
+      if (!s || !signedInRef.current || !where) return;
       if (statusRef.current === 'ask' && !answer.current) return;
       if (running.current) {
         if (queue) again.current = true;
@@ -87,7 +107,7 @@ export function useCloudSync({ connect, storage, data, replace, delay = SYNC_DEL
       show('syncing');
       try {
         for (let tries = 1; ; tries++) {
-          const meta = readMeta(storage);
+          const meta = metaFor(where);
           const remote = await s.fetch();
           if (!signedInRef.current) return;
           const remoteData = remote ? parseData(remote.json, currentDate()) : null;
@@ -100,6 +120,8 @@ export function useCloudSync({ connect, storage, data, replace, delay = SYNC_DEL
             localUntouched: isUntouched(local),
             remote: remote && remoteData && { tag: remote.tag, savedAt: remote.savedAt, hash: hashData(remoteData) },
           });
+          // A shared plan is the household's: a device switching to it takes it rather than offering its own.
+          if (where.kind === 'member' && meta.tag === null && remote) plan = 'adopt';
           if (plan === 'ask') {
             if (!answer.current) {
               show('ask');
@@ -108,12 +130,12 @@ export function useCloudSync({ connect, storage, data, replace, delay = SYNC_DEL
             plan = answer.current === 'cloud' ? 'adopt' : 'push';
           }
           if (plan === 'adopt' && remote && remoteData) {
-            writeMeta(storage, { tag: remote.tag, syncedHash: hashData(remoteData), editedAt: 0 });
+            writeMeta(storage, { tag: remote.tag, syncedHash: hashData(remoteData), editedAt: 0, place: meta.place });
             replace(remoteData);
           } else if (plan === 'push') {
             try {
               const saved = await s.save(JSON.stringify(local), remote?.tag ?? null);
-              writeMeta(storage, { tag: saved.tag, syncedHash: localHash, editedAt: meta.editedAt });
+              writeMeta(storage, { tag: saved.tag, syncedHash: localHash, editedAt: meta.editedAt, place: meta.place });
             } catch (e) {
               // Another device saved since the fetch: look again.
               if (e instanceof CloudError && e.code === 'conflict' && tries < 3) continue;
@@ -150,11 +172,22 @@ export function useCloudSync({ connect, storage, data, replace, delay = SYNC_DEL
       if (!live) return;
       signedInRef.current = true;
       setSignedIn(true);
-      void sync();
+      s.place()
+        .then((where) => {
+          if (!live || !signedInRef.current) return;
+          moveTo(where);
+          void sync();
+        })
+        .catch((e: unknown) => {
+          if (!live) return;
+          setError(messageFor(e));
+          show('error');
+        });
       void s.whenSignedOut().then(() => {
         if (!live) return;
         signedInRef.current = false;
         setSignedIn(false);
+        moveTo(null);
         writeMeta(storage, EMPTY_META);
         answer.current = null;
         setLastSynced(null);
@@ -194,8 +227,9 @@ export function useCloudSync({ connect, storage, data, replace, delay = SYNC_DEL
     }
     if (!connect) return;
     const meta = readMeta(storage);
-    if (hashData(data) === meta.syncedHash) return;
-    if (meta.tag !== null) writeMeta(storage, { ...meta, editedAt: Date.now() });
+    const samePlace = !placeRef.current || meta.place === placeId(placeRef.current);
+    if (samePlace && hashData(data) === meta.syncedHash) return;
+    if (samePlace && meta.tag !== null) writeMeta(storage, { ...meta, editedAt: Date.now() });
     if (!signedInRef.current || statusRef.current === 'ask') return;
     clearTimeout(timer.current);
     timer.current = setTimeout(() => void sync(), delay);
@@ -222,6 +256,7 @@ export function useCloudSync({ connect, storage, data, replace, delay = SYNC_DEL
     () => ({
       status,
       signedIn,
+      place,
       lastSynced,
       error,
       syncNow: () => {
@@ -240,6 +275,6 @@ export function useCloudSync({ connect, storage, data, replace, delay = SYNC_DEL
         session.current?.setUpAuth().catch(() => undefined);
       },
     }),
-    [status, signedIn, lastSynced, error, sync],
+    [status, signedIn, place, lastSynced, error, sync],
   );
 }

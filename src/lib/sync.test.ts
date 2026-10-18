@@ -1,6 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { defaultData, newPerson } from './storage';
-import { EMPTY_META, SYNC_KEY, hashData, isUntouched, readMeta, reconcile, stableStringify, writeMeta, type SyncMeta } from './sync';
+import {
+  EMPTY_META,
+  SYNC_KEY,
+  hashData,
+  isUntouched,
+  placeId,
+  readMeta,
+  reconcile,
+  stableStringify,
+  writeMeta,
+  type SyncMeta,
+} from './sync';
 
 describe('stableStringify and hashData', () => {
   it('ignores key order and undefined values', () => {
@@ -27,18 +38,31 @@ describe('isUntouched', () => {
 
 describe('sync metadata', () => {
   it('round-trips and repairs', () => {
-    writeMeta(localStorage, { tag: 't1', syncedHash: 'h', editedAt: 5 });
-    expect(readMeta(localStorage)).toEqual({ tag: 't1', syncedHash: 'h', editedAt: 5 });
+    writeMeta(localStorage, { tag: 't1', syncedHash: 'h', editedAt: 5, place: 'shared:u2' });
+    expect(readMeta(localStorage)).toEqual({ tag: 't1', syncedHash: 'h', editedAt: 5, place: 'shared:u2' });
     localStorage.setItem(SYNC_KEY, '{"tag":"t1","syncedHash":"h","editedAt":"x"}');
     expect(readMeta(localStorage).editedAt).toBe(0);
     localStorage.setItem(SYNC_KEY, '{oops');
     expect(readMeta(localStorage)).toEqual(EMPTY_META);
     expect(readMeta(null)).toEqual(EMPTY_META);
   });
+
+  it('belongs to your own plan when it names no place', () => {
+    localStorage.setItem(SYNC_KEY, '{"tag":"t1","syncedHash":"h","editedAt":5}');
+    expect(readMeta(localStorage).place).toBe('own');
+    localStorage.setItem(SYNC_KEY, '{"tag":"t1","syncedHash":"h","editedAt":5,"place":7}');
+    expect(readMeta(localStorage)).toEqual({ tag: 't1', syncedHash: 'h', editedAt: 5, place: 'own' });
+  });
+
+  it('names places by whose plan it is', () => {
+    expect(placeId({ kind: 'own', code: null })).toBe('own');
+    expect(placeId({ kind: 'own', code: 'abc' })).toBe('own');
+    expect(placeId({ kind: 'member', ownerId: 'u2', owner: 'Dana' })).toBe('shared:u2');
+  });
 });
 
 describe('reconcile', () => {
-  const linked: SyncMeta = { tag: 't1', syncedHash: 'local-0', editedAt: 1000 };
+  const linked: SyncMeta = { tag: 't1', syncedHash: 'local-0', editedAt: 1000, place: 'own' };
   const remote = (tag: string, savedAt = 500, hash = 'remote') => ({ tag, savedAt, hash });
   const plan = (meta: SyncMeta, localHash: string, r: ReturnType<typeof remote> | null, localUntouched = false) =>
     reconcile({ meta, localHash, localUntouched, remote: r });

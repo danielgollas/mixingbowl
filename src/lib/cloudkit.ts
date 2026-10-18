@@ -168,5 +168,13 @@ function cloudKitSession(container: CKContainer): CloudSession {
       if (!saved?.recordChangeTag) throw new CloudError('other', 'iCloud didn’t confirm the save.');
       return { json, savedAt: saved.modified?.timestamp ?? Date.now(), tag: saved.recordChangeTag };
     },
+    place: async () => ({ kind: 'own', code: null }),
+    share: notYet,
+    stopSharing: notYet,
+    inspect: notYet,
+    join: notYet,
+    leave: notYet,
   };
 }
+
+const notYet = (): Promise<never> => Promise.reject(new CloudError('other', 'Not available yet.'));
