@@ -14,10 +14,10 @@
 | Where the plan lives | Every signed-in owner keeps the plan record in a custom zone `Household` of their private database, because CloudKit only shares records in custom zones. On the first sync with this version, a plan in the default zone is copied there (keeping its original save time); the old default-zone record is left untouched. |
 | Owner: Share plan | Settings → iCloud sync → **Share plan** creates the share (or reuses the existing one) and shows the link with **Copy link** and, where the browser has it, **Share…** (the system share sheet). The card then says "Shared — anyone with the link can join." and offers **Stop sharing** with an inline confirm ("Everyone who joined loses access. Your plan stays as it is."). |
 | Joining | `#/join/<code>`: a Join page. Signed out → Apple's sign-in button. Signed in → "Join {owner}'s plan?" (owner's name when iCloud provides it, else "Join this shared plan?") and "This replaces the plan in this browser." with **Join** / **Not now**. Join accepts the share, adopts the shared plan without asking again, and goes to Today. |
-| Member devices | A signed-in user whose shared database holds a `Household` zone uses that shared plan on every device, without opening the link again. |
+| Member devices | A signed-in user whose shared database holds a `Household` zone uses that shared plan on every device, without opening the link again. The first time a device switches to the shared plan it adopts it without asking, so a stale local plan can never overwrite the household's. |
 | Member: Leave | The card says "Using a shared plan" (with the owner's name when known) and offers **Leave** with an inline confirm ("This browser keeps a copy. Your own iCloud plan is used again."). Leave removes the shared zone from the member's shared database, which leaves the share. |
 | Back to your own plan | After Leave, or when the owner stops sharing (the shared zone is gone), the member's app goes back to their own private plan. That is a fresh sync, so the existing rules apply: untouched or equal data adopts, different data asks "Which one do you want to keep?". When sharing was stopped the card first says "This plan is no longer shared with you." |
-| Sync rules | Unchanged. Sync metadata now records which plan it belongs to (`place`: `own` or the share code); metadata for another place counts as never synced. |
+| Sync rules | Unchanged. Sync metadata now records which plan it belongs to (`place`: `own`, or `shared:<owner record name>`); metadata for another place counts as never synced. |
 | Dead link | Accept fails (share deleted or code wrong) → "This invite no longer works. Ask for a new link." on the Join page. |
 | Owner joins own link | "This is your own plan's invite link." No accept. |
 | Environment | The build switches to `production` once the owner deploys the schema in the CloudKit Console. |
@@ -34,13 +34,14 @@
 ## 3. Code
 
 - `lib/sync.ts`: `CloudErrorCode` adds `'gone'` and `'own'`. `CloudSession` gains:
-  - `place(): Promise<Place>` — `{ kind: 'own'; code: string | null }` (code of the owner's share, if any) or `{ kind: 'member'; code: string; owner: string | null }`. Called after each sign-in; `fetch`/`save` use the place it found.
+  - `place(): Promise<Place>` — `{ kind: 'own'; code: string | null }` (code of the owner's share, if any) or `{ kind: 'member'; ownerId: string; owner: string | null }` (owner's user record name and display name). Called after each sign-in; `fetch`/`save` use the place it found.
   - `share(): Promise<string>` — creates or returns the share code (owner only).
   - `stopSharing(): Promise<void>` (owner only).
+  - `inspect(code): Promise<{ owner: string | null }>` — looks the invite up without accepting, for the Join prompt; same errors as `join`.
   - `join(code): Promise<{ owner: string | null }>` — accepts; the session is now a member. Throws `CloudError('gone')` for a dead link and `CloudError('own')` for the owner's own link.
   - `leave(): Promise<void>` (member only); the session is the owner of its own plan again.
   - `fetch` throws `CloudError('gone')` when a member's shared zone has disappeared.
-  - `SyncMeta.place: string` (`'own'` or the code); `readMeta` repairs a missing place to `'own'`.
+  - `SyncMeta.place: string` (`'own'` or `shared:<ownerId>`); `readMeta` repairs a missing place to `'own'`.
 - `lib/cloudkit.ts`: zone `Household`; zone creation; default-zone migration; share record create/fetch/delete; `acceptShares`; `fetchRecordInfos` for the owner's name; shared-database zone listing and deletion.
 - `useCloudSync.ts`: `place` state, `share()`, `stopSharing()`, `join(code)`, `leave()`, `unshared` notice; a `gone` error switches back to the own plan and re-syncs.
 - `router.ts`: `{ name: 'join'; code: string }` ↔ `#/join/<code>`.
