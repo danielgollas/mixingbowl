@@ -50,3 +50,11 @@ describe('sortItems', () => {
     expect(density).toEqual([...density].sort((a, b) => b - a));
   });
 });
+
+describe('seasoned variants', () => {
+  it('are listed and searchable by their spices', () => {
+    const ids = items.map((i) => i.id);
+    for (const id of ['cumin-lime-lentils', 'garlic-lime-rice', 'cajun-tempeh', 'lemon-pepper-tofu', 'chili-garlic-edamame', 'lemon-garlic-broccoli', 'fajita-peppers']) expect(ids, id).toContain(id);
+    expect(filterItems(items, 'cajun', 'all').map((i) => i.id)).toContain('cajun-tempeh');
+  });
+});

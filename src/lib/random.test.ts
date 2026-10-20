@@ -143,3 +143,12 @@ describe('randomWeek', () => {
     expect(entries.reduce((sum, e) => sum + e.days, 0)).toBe(7);
   });
 });
+
+describe('seasoned variants', () => {
+  it('can come up in a random bowl', () => {
+    const rng = seeded(7);
+    const seen = new Set<ComponentId>();
+    for (let i = 0; i < 400; i++) for (const id of rollBowl(null, {}, rng)) seen.add(id);
+    for (const id of ['cumin-lime-lentils', 'garlic-lime-rice', 'cajun-tempeh', 'lemon-pepper-tofu', 'chili-garlic-edamame', 'lemon-garlic-broccoli', 'fajita-peppers']) expect(seen.has(id), id).toBe(true);
+  });
+});

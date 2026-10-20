@@ -83,9 +83,9 @@ describe('mealNutrition', () => {
     expect(scaled.protein).toBeCloseTo(mealNutrition(bowl).protein + scramble.protein * 0.5, 5);
   });
 
-  it('estimates the Scramble Bowl at about 608 kcal and 46 g protein', () => {
+  it('estimates the Scramble Bowl at about 610 kcal and 46 g protein', () => {
     const n = mealNutrition(bowl);
-    expect(n.kcal).toBeCloseTo(607.8, 0);
+    expect(n.kcal).toBeCloseTo(610.4, 0);
     expect(n.protein).toBeCloseTo(45.8, 0);
   });
 });

@@ -87,6 +87,13 @@ describe('shoppingList', () => {
     expect(groups.map((g) => g.category)).not.toContain('Basics');
   });
 
+  it('lists the spices that seasoned parts need', () => {
+    const fajita: Meal = { id: 'x', name: 'Fajita bowl', kind: 'bowl', parts: ['garlic-lime-rice', 'cajun-tempeh', 'fajita-peppers'] };
+    const spices = shoppingList(weekTotals([day(fajita)])).find((g) => g.category === 'Spices & Baking');
+    const ids = spices?.lines.map((l) => l.id) ?? [];
+    expect(ids).toEqual(expect.arrayContaining(['cumin', 'cajun-seasoning', 'chili-powder']));
+  });
+
   it('buys whole packs with a little tolerance', () => {
     expect(packsToBuy(0.2)).toBe(1);
     expect(packsToBuy(2.6)).toBe(3);

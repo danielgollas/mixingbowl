@@ -58,6 +58,7 @@ export const FOOD_LIST: Food[] = [
   food('bamboo-shoots', 'Bamboo shoots', 19, 1.7, { fat: 0.4, fiber: 1.4, sugar: 1.7 }, 'Produce'),
   food('garlic', 'Fresh garlic', 149, 6.4, { fat: 0.5, fiber: 2.1, sugar: 1 }, 'Produce'),
   food('lemon-juice', 'Lemons or lemon juice', 22, 0.4, { fat: 0.2, fiber: 0.3, sugar: 2.5 }, 'Produce'),
+  food('lime-juice', 'Limes or lime juice', 25, 0.4, { fat: 0.1, fiber: 0.4, sugar: 1.7 }, 'Produce'),
   food('frozen-berries', 'Frozen strawberries / blueberries', 45, 0.7, { fat: 0.3, fiber: 2.2, sugar: 6.5 }, 'Produce'),
 
   // ---- Grains & noodles (beds are entered cooked) ----
@@ -89,6 +90,7 @@ export const FOOD_LIST: Food[] = [
   food('nori', 'Nori sheets', 35, 5.8, { fat: 0.3, fiber: 0.3, sugar: 0.5 }, 'Sauces & Condiments'),
   food('almond-milk', 'Unsweetened almond milk', 15, 0.6, { fat: 1.1, fiber: 0.2, sugar: 0 }, 'Sauces & Condiments'),
   food('olive-oil-spray', 'Olive oil spray', 884, 0, { fat: 100, fiber: 0, sugar: 0 }, 'Sauces & Condiments'),
+  food('vegetable-bouillon', 'Vegetable bouillon (powder or paste)', 200, 8, { fat: 6, fiber: 1, sugar: 10 }, 'Sauces & Condiments'),
 
   // ---- Spices & baking ----
   food('nutritional-yeast', 'Nutritional yeast', 400, 50, { fat: 5, fiber: 20, sugar: 0 }, 'Spices & Baking'),
@@ -101,6 +103,12 @@ export const FOOD_LIST: Food[] = [
   food('ginger', 'Ground ginger', 335, 9, { fat: 4.2, fiber: 14, sugar: 3.4 }, 'Spices & Baking'),
   food('garlic-salt', 'Garlic salt', 80, 4, { fat: 0.2, fiber: 2, sugar: 0.5 }, 'Spices & Baking'),
   food('dried-herbs', 'Dried dill, oregano & parsley', 270, 15, { fat: 4, fiber: 30, sugar: 2 }, 'Spices & Baking'),
+  food('cumin', 'Ground cumin', 375, 17.8, { fat: 22.3, fiber: 10.5, sugar: 2.3 }, 'Spices & Baking'),
+  food('chili-flakes', 'Crushed red pepper flakes', 318, 12, { fat: 17.3, fiber: 27.2, sugar: 10.3 }, 'Spices & Baking'),
+  food('chili-powder', 'Chili powder', 282, 13.5, { fat: 14.3, fiber: 34.8, sugar: 7.2 }, 'Spices & Baking'),
+  food('cajun-seasoning', 'Cajun seasoning', 250, 10, { fat: 7, fiber: 20, sugar: 3 }, 'Spices & Baking'),
+  food('black-pepper', 'Ground black pepper', 251, 10.4, { fat: 3.3, fiber: 25.3, sugar: 0.6 }, 'Spices & Baking'),
+  food('bay-leaves', 'Bay leaves', 313, 7.6, { fat: 8.4, fiber: 26.3, sugar: 0 }, 'Spices & Baking'),
 
   // ---- Basics (never on the shopping list) ----
   food('water', 'Water', 0, 0, { fat: 0, fiber: 0, sugar: 0 }, 'Basics'),

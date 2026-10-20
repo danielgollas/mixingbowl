@@ -74,6 +74,40 @@ describe('foods and components', () => {
     }
   });
 
+  it('seasons every bed, protein and veg', () => {
+    const extras = new Set(['salt-pepper', 'lemon-juice', 'lime-juice', 'garlic']);
+    const notSeasoning = new Set(['olive-oil-spray', 'almond-milk', 'water', 'ice']);
+    const isSeasoning = (foodId: string) =>
+      extras.has(foodId) ||
+      (!notSeasoning.has(foodId) && ['Spices & Baking', 'Sauces & Condiments'].includes(FOODS[foodId].category));
+    const seasoned = (id: string): boolean =>
+      COMPONENTS[id].ingredients.some((i) => isSeasoning(i.foodId)) || COMPONENTS[id].uses.some((u) => seasoned(u.componentId));
+    const bland = COMPONENT_LIST.filter((c) => ['bed', 'protein', 'veg'].includes(c.role) && !seasoned(c.id));
+    expect(bland.map((c) => c.id)).toEqual([]);
+  });
+
+  it('lists salt as an ingredient whenever the steps add it', () => {
+    for (const component of COMPONENT_LIST) {
+      const salts = component.steps.some((step) => /(?<!garlic )\bsalt\b/i.test(step));
+      if (!salts) continue;
+      const listed = component.ingredients.some((i) => i.foodId === 'salt-pepper' || i.foodId === 'garlic-salt');
+      expect(listed, component.id).toBe(true);
+    }
+  });
+
+  it('offers seasoned flavor variants', () => {
+    const variants: [string, string][] = [
+      ['cumin-lime-lentils', 'bed'],
+      ['garlic-lime-rice', 'bed'],
+      ['cajun-tempeh', 'protein'],
+      ['lemon-pepper-tofu', 'protein'],
+      ['chili-garlic-edamame', 'protein'],
+      ['lemon-garlic-broccoli', 'veg'],
+      ['fajita-peppers', 'veg'],
+    ];
+    for (const [id, role] of variants) expect(COMPONENTS[id]?.role, id).toBe(role);
+  });
+
   it('does not match inherited object keys as ids', () => {
     expect(getComponent('constructor')).toBeUndefined();
     expect(getPreset('toString')).toBeUndefined();

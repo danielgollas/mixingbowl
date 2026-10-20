@@ -40,7 +40,7 @@ describe('scaleDay', () => {
     expect(bowl.servings['tofu-scramble']).toBe(3);
     expect(bowl.servings['brown-rice']).toBe(2);
     expect(day.total.kcal).toBeLessThanOrEqual(KCAL_MAX);
-    expect(day.total.kcal).toBeCloseTo(1469.3, 0);
+    expect(day.total.kcal).toBeCloseTo(1471.9, 0);
     expect(day.shortBy.protein).toBeCloseTo(11.6, 0);
   });
 
