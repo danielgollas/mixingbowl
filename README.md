@@ -54,6 +54,8 @@ Sync is off until the build has a CloudKit container and web API token.
    Identifiers → iCloud Containers → **+**, e.g. `iCloud.io.github.danielgollas.mixingbowl`.
 2. [CloudKit Console](https://icloud.developer.apple.com/) → the container → **Schema** (Development) → Record Types →
    **+** `AppData` with one field `plan` of type **String**. Then **Deploy Schema Changes…** to Production.
+   Sharing also needs the `cloudkit.share` type, which CloudKit only creates the first time a share is made in
+   Development: run the app against `development`, tap **Share plan**, then deploy the schema again.
 3. CloudKit Console → **Tokens & Keys** (API Access) → new **API Token**: Sign In Callback **Post Message**,
    Allowed Origins `https://danielgollas.github.io` (add `http://localhost:5173` for development).
 4. Repository variables (Settings → Secrets and variables → Actions → Variables), then re-run the deploy:
@@ -63,7 +65,7 @@ Sync is off until the build has a CloudKit container and web API token.
    gh variable set CLOUDKIT_ENVIRONMENT --body production
    ```
    Locally, put the same values in `.env.local` as `VITE_CLOUDKIT_CONTAINER`, `VITE_CLOUDKIT_API_TOKEN` and
-   `VITE_CLOUDKIT_ENVIRONMENT` (use `development` to test against the development database).
+   `VITE_CLOUDKIT_ENVIRONMENT` (use `development` to test against the development database, with an API token made in that environment; tokens only work in one).
 
 The token is meant to be public: CloudKit web tokens only work from the allowed origins, and each user only reaches
 their own private database.
