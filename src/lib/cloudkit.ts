@@ -236,6 +236,13 @@ function cloudKitSession(container: CKContainer): CloudSession {
     return (await records(() => mine.fetchRecords([root.share!.recordName], { zoneID: own })))[0];
   };
 
+  const addShortGUID = async (root: CKRecord) => {
+    const update = { ...planRecord('', root.recordChangeTag), fields: root.fields, createShortGUID: true };
+    const saved = (await records(() => mine.saveRecords([update], { zoneID: own }), []))[0];
+    if (!saved?.recordChangeTag) throw new CloudError('other', 'iCloud didn’t confirm the save.');
+    return saved;
+  };
+
   /** Who owns the invite with this code; throws 'gone' or 'own'. */
   const lookUp = async (code: string) => {
     let info: CKShareInfo | undefined;
@@ -309,9 +316,11 @@ function cloudKitSession(container: CKContainer): CloudSession {
       if (!root) throw new CloudError('other', 'Sync your plan with iCloud before sharing it.');
       const existing = await shareRecord(root);
       if (existing?.shortGUID) return existing.shortGUID;
+      // Only a record with a short GUID can be shared, and plans aren't saved with one.
+      const shareable = root.shortGUID ? root : await addShortGUID(root);
       const share = {
         recordType: SHARE_TYPE,
-        forRecord: { recordName: root.recordName, recordChangeTag: root.recordChangeTag },
+        forRecord: { recordName: shareable.recordName, recordChangeTag: shareable.recordChangeTag },
         publicPermission: 'READ_WRITE',
         fields: { 'cloudkit.title': { value: 'Mixing Bowl plan' } },
       };

@@ -106,6 +106,7 @@ interface FakeRecord {
   fields: Record<string, { value: unknown }>;
   modified: { timestamp: number };
   share?: { recordName: string };
+  createShortGUID?: boolean;
   shortGUID?: string;
   publicPermission?: string;
   forRecord?: { recordName: string };
@@ -151,6 +152,8 @@ function fakeICloud() {
           clock += 1000;
           if (r.recordType === 'cloudkit.share') {
             const root = zone.get(r.forRecord!.recordName)!;
+            if (!root.shortGUID)
+              return { hasErrors: true, errors: [{ ckErrorCode: 'BAD_REQUEST', reason: 'Record must already exist and have a stable URL' }] };
             const share: FakeRecord = {
               recordName: `share-${++n}`,
               recordType: 'cloudkit.share',
@@ -171,6 +174,7 @@ function fakeICloud() {
             return { hasErrors: true, errors: [{ ckErrorCode: existing ? 'CONFLICT' : 'NOT_FOUND' }] };
           const next: FakeRecord = {
             ...existing,
+            ...(r.createShortGUID && !existing?.shortGUID && { shortGUID: `ROOT${++n}` }),
             recordName: r.recordName!,
             recordType: r.recordType!,
             fields: r.fields!,
@@ -311,6 +315,16 @@ describe('sharing your plan', () => {
     expect(share).toMatchObject({ recordType: 'cloudkit.share', publicPermission: 'READ_WRITE' });
     expect(await owner.share()).toBe(code);
     expect(cloud.shares.size).toBe(1);
+  });
+
+  it('shares a plan saved before it needed a stable link, leaving the plan as it was', async () => {
+    const { cloud, owner } = await shared();
+    const zone = cloud.zoneOf('u1', 'Household')!;
+    const root = zone.get('mixingbowl')!;
+    zone.set('mixingbowl', { ...root, shortGUID: undefined });
+    const code = await owner.share();
+    expect(cloud.shares.has(code)).toBe(true);
+    expect(zone.get('mixingbowl')?.fields).toEqual(root.fields);
   });
 
   it('knows a shared plan is yours and finds its code', async () => {
