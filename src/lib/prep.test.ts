@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { PRESETS } from '../data/meals';
 import type { Meal, Slot } from '../data/types';
 import { formatQuantity, formatWeight } from './format';
-import { formatPortion, householdTotals, packsToBuy, prepList, shoppingList, weekPlan, weekTotals, type PlanInput } from './prep';
-import { defaultData } from './storage';
+import { formatPortion, householdTotals, packsToBuy, planInput, prepList, shoppingList, weekPlan, weekTotals, type PlanInput } from './prep';
+import { defaultData, parseData } from './storage';
 import { scaleDay, type ScaledDay } from './scaling';
 
 const day = (...meals: Meal[]): ScaledDay =>
@@ -173,5 +173,28 @@ describe('householdTotals', () => {
     expect(shared?.shares).toBe('Me 6 servings');
     expect(line(prepList(totals, people), 'tofu-scramble')?.shares).toMatch(/^Me [\d,]+ g tofu · Alex [\d,]+ g tofu$/);
     expect(line(prepList(totals, people.slice(0, 1)), 'tofu-scramble')?.shares).toBeNull();
+  });
+});
+
+describe('a second snack', () => {
+  const data = defaultData('2026-09-14');
+  const person = { ...data.people[0], meals: ['snack', 'dinner', 'snack2'] as Slot[] };
+
+  it('plans both snacks for the day, with a default menu', () => {
+    const [day] = weekPlan(planInput({ ...data, people: [person] }, person), 1);
+    const snacks = day.meals.filter((m) => m.slot === 'snack' || m.slot === 'snack2');
+    expect(snacks.map((m) => m.slot)).toEqual(['snack', 'snack2']);
+    expect(snacks.every((m) => m.meal.kind === 'snack')).toBe(true);
+  });
+
+  it('survives a save and load', () => {
+    const saved = JSON.stringify({ ...data, people: [person] });
+    expect(parseData(saved, '2026-09-14')!.people[0].meals).toEqual(['snack', 'dinner', 'snack2']);
+  });
+
+  it('takes its own menu, and refuses a bowl', () => {
+    const menu = { snack2: [{ mealId: 'banana-berries', days: 7 }, { mealId: 'scramble-bowl', days: 1 }] };
+    const saved = JSON.stringify({ ...data, menus: { 1: menu } });
+    expect(parseData(saved, '2026-09-14')!.menus[1].snack2).toEqual([{ mealId: 'banana-berries', days: 7 }]);
   });
 });

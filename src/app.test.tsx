@@ -622,7 +622,7 @@ describe('bowl page', () => {
   it('offers snack meals for a snack', () => {
     renderApp('#/bowls/protein-fluff');
     const meal = screen.getByLabelText('Meal') as HTMLSelectElement;
-    expect([...meal.options].map((o) => o.textContent)).toEqual(['Breakfast', 'Snack']);
+    expect([...meal.options].map((o) => o.textContent)).toEqual(['Breakfast', 'Snack', 'Second snack']);
   });
 
   it('lets you edit and delete your own bowl when no menu uses it', () => {

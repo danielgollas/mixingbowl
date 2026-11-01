@@ -26,6 +26,7 @@ export const resolveMenu = (menus: Menus, week: number): Required<WeekMenu> => (
   lunch: resolveEntries(menus, week, 'lunch'),
   snack: resolveEntries(menus, week, 'snack'),
   dinner: resolveEntries(menus, week, 'dinner'),
+  snack2: resolveEntries(menus, week, 'snack2'),
 });
 
 export const plannedDays = (entries: MenuEntry[]): number => entries.reduce((sum, e) => sum + e.days, 0);

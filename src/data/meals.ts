@@ -48,6 +48,7 @@ export const SLOT_LABELS: Record<Slot, string> = {
   lunch: 'Lunch',
   snack: 'Snack',
   dinner: 'Dinner',
+  snack2: 'Second snack',
 };
 
 /** Which kind of meal fills each slot. */
@@ -56,6 +57,7 @@ export const SLOT_KIND: Record<Slot, MealKind> = {
   lunch: 'bowl',
   snack: 'snack',
   dinner: 'bowl',
+  snack2: 'snack',
 };
 
 export const DEFAULT_MEALS: Slot[] = ['snack', 'dinner'];
@@ -76,6 +78,10 @@ export const DEFAULT_MENU: Required<WeekMenu> = {
   dinner: [
     { mealId: 'scramble-bowl', days: 4 },
     { mealId: 'crispy-tofu-bowl', days: 3 },
+  ],
+  snack2: [
+    { mealId: 'fruit-cup', days: 4 },
+    { mealId: 'apple-peanut-butter', days: 3 },
   ],
 };
 

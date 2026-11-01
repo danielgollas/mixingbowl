@@ -85,7 +85,7 @@ export interface Meal {
   parts: ComponentId[];
 }
 
-export const SLOTS = ['breakfast', 'lunch', 'snack', 'dinner'] as const;
+export const SLOTS = ['breakfast', 'lunch', 'snack', 'dinner', 'snack2'] as const;
 export type Slot = (typeof SLOTS)[number];
 
 export interface MenuEntry {
