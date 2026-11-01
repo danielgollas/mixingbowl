@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/preact';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/preact';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './app';
 import { PRESETS } from './data/meals';
@@ -666,5 +666,35 @@ describe('review fixes', () => {
     renderApp('#/menu');
     fireEvent.click(screen.getByRole('button', { name: 'Randomize week' }));
     expect(screen.getByText(/Later weeks that follow this/)).toBeTruthy();
+  });
+});
+
+describe('what a bowl is made of', () => {
+  it('lists a bowl’s parts on the Menu', () => {
+    renderApp('#/menu');
+    expect(section('Dinner').querySelector('.bowl-parts')?.textContent).toContain('Brown rice');
+    expect(section('Snack').querySelector('.bowl-parts')).toBeNull();
+  });
+
+  it('lists a bowl’s parts in Recipes, and none for a part', () => {
+    renderApp('#/recipes');
+    const list = within(screen.getByRole('list', { name: 'Recipes' }));
+    expect(list.getByRole('link', { name: /Scramble Bowl/ }).textContent).toContain('Tofu scramble');
+    expect(list.getByRole('link', { name: /^Crispy air-fried tofu/ }).querySelector('.bowl-parts')).toBeNull();
+  });
+
+  it('links every card to its recipe', () => {
+    renderApp('#/today');
+    const meals = within(screen.getByRole('region', { name: 'Meals' }));
+    expect(meals.getAllByRole('link', { name: 'View recipe' })[1].getAttribute('href')).toBe('#/bowls/scramble-bowl');
+    cleanup();
+    renderApp('#/menu');
+    const dinner = within(section('Dinner'));
+    expect(dinner.getAllByRole('link', { name: 'View recipe' })[0].getAttribute('href')).toBe('#/bowls/scramble-bowl');
+  });
+
+  it('lists a bowl’s parts in the printed menu', () => {
+    renderApp('#/print/1');
+    expect(screen.getByRole('table').textContent).toContain('Tofu scramble');
   });
 });

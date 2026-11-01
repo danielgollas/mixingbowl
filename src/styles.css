@@ -132,6 +132,15 @@ h1:focus:not(:focus-visible) {
   background: var(--surface-2);
 }
 
+.recipe-link {
+  font-size: 0.85rem;
+}
+
+.bowl-parts {
+  display: block;
+  font-size: 0.8rem;
+}
+
 .sync-note {
   position: sticky;
   top: 0;

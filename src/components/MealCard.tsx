@@ -36,6 +36,9 @@ export function MealCard({ scaled, eaten, disabled, onToggle }: Props) {
             );
           })}
         </ul>
+        <a class="recipe-link" href={hrefFor({ name: 'bowl', id: meal.id })}>
+          View recipe
+        </a>
       </div>
       <button
         type="button"

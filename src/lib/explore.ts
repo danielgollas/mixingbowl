@@ -12,6 +12,8 @@ export interface RecipeItem {
   name: string;
   /** Parts only. */
   role: Role | null;
+  /** What a bowl is made of; empty for anything else. */
+  parts: ComponentId[];
   nutrition: Nutrition;
   href: string;
   /** Lower-case names of the item, its parts and every ingredient, for search. */
@@ -40,6 +42,7 @@ export function recipeItems(customMeals: CustomMeals): RecipeItem[] {
       id: meal.id,
       name: meal.name,
       role: null,
+      parts: meal.kind === 'bowl' ? meal.parts : [],
       nutrition: mealNutrition(meal),
       href: hrefFor({ name: 'bowl', id: meal.id }),
       search: [meal.name, ...meal.parts.flatMap(searchTerms)].join(' ').toLowerCase(),
@@ -51,6 +54,7 @@ export function recipeItems(customMeals: CustomMeals): RecipeItem[] {
       id: c.id,
       name: c.name,
       role: c.role,
+      parts: [],
       nutrition: componentNutrition(c.id),
       href: hrefFor({ name: 'component', id: c.id }),
       search: searchTerms(c.id).join(' ').toLowerCase(),

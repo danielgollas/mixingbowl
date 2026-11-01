@@ -1,3 +1,4 @@
+import { BowlParts } from '../components/BowlParts';
 import { useWeek } from '../components/WeekHeader';
 import { COMPONENTS } from '../data/components';
 import { FOODS } from '../data/foods';
@@ -70,7 +71,12 @@ export function PrintWeek({ week: routeWeek }: { week: number | null }) {
                 {slots.map((slot) => {
                   const entry = entryForDay(menu[slot], index + 1);
                   const meal = entry && findMeal(entry.mealId, data.customMeals);
-                  return <td key={slot}>{meal ? meal.name : '—'}</td>;
+                  return (
+                    <td key={slot}>
+                      {meal ? meal.name : '—'}
+                      {meal?.kind === 'bowl' && <BowlParts parts={meal.parts} />}
+                    </td>
+                  );
                 })}
               </tr>
             ))}

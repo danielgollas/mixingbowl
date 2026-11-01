@@ -1,3 +1,4 @@
+import { BowlParts } from '../components/BowlParts';
 import { useState } from 'preact/hooks';
 import { BowlEditor } from '../components/BowlEditor';
 import { MenuStats } from '../components/MenuStats';
@@ -216,6 +217,7 @@ function MenuItem({ meal, entry, range, canGrow, onDays, onRemove, onEdit }: Ite
           <h3 class="entry-name">{meal.name}</h3>
           <p class="meta">{`${days} · ${formatKcal(nutrition.kcal)} · ${formatGrams(nutrition.protein)} protein`}</p>
           <p class="meta extras">{formatExtras(nutrition)}</p>
+          {meal.kind === 'bowl' && <BowlParts parts={meal.parts} />}
         </div>
         <div class="stepper" role="group" aria-label={`Days of ${meal.name}`}>
           <button
@@ -238,6 +240,9 @@ function MenuItem({ meal, entry, range, canGrow, onDays, onRemove, onEdit }: Ite
         </div>
       </div>
       <div class="entry-actions">
+        <a class="recipe-link" href={hrefFor({ name: 'bowl', id: meal.id })}>
+          View recipe
+        </a>
         {meal.kind === 'bowl' && (
           <button type="button" class="button-link" aria-expanded={open} onClick={() => setOpen(!open)}>
             {open ? 'Done swapping' : 'Swap ingredients'}

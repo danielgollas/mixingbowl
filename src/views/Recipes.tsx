@@ -1,3 +1,4 @@
+import { BowlParts } from '../components/BowlParts';
 import { useMemo, useState } from 'preact/hooks';
 import { RandomBowl } from '../components/RandomBowl';
 import { filterItems, recipeItems, sortItems, type RecipeFilter, type RecipeItem, type RecipeSort } from '../lib/explore';
@@ -84,6 +85,7 @@ export function Recipes() {
                     {`${kindLabel(item)} · ${formatKcal(item.nutrition.kcal)} · ${formatGrams(item.nutrition.protein)} protein`}
                   </span>
                   <span class="meta extras">{formatExtras(item.nutrition)}</span>
+                  <BowlParts parts={item.parts} />
                 </a>
               </li>
             ))}
