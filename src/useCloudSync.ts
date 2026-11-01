@@ -21,6 +21,8 @@ export type SyncStatus = 'off' | 'connecting' | 'signed-out' | 'syncing' | 'sync
 export interface CloudSync {
   /** 'off' when this build has no iCloud settings. */
   status: SyncStatus;
+  /** True for a few seconds after another device's changes arrive. */
+  updated: boolean;
   signedIn: boolean;
   /** Where the signed-in user's plan lives; null until known. */
   place: Place | null;
@@ -50,6 +52,8 @@ export interface CloudSync {
 }
 
 export const SYNC_DELAY = 1500;
+const POLL_EVERY = 30_000;
+const UPDATED_FOR = 4000;
 
 const GONE_PLAN = 'This plan is no longer shared with you.';
 
@@ -65,15 +69,18 @@ interface Options {
   /** Replaces the app's data with the cloud copy. */
   replace(data: AppData): void;
   delay?: number;
+  /** How often to look for other devices' changes while the app is on screen. */
+  pollEvery?: number;
 }
 
-export function useCloudSync({ connect, storage, data, replace, delay = SYNC_DELAY }: Options): CloudSync {
+export function useCloudSync({ connect, storage, data, replace, delay = SYNC_DELAY, pollEvery = POLL_EVERY }: Options): CloudSync {
   const [status, setStatus] = useState<SyncStatus>(connect ? 'connecting' : 'off');
   const [signedIn, setSignedIn] = useState(false);
   const [place, setPlace] = useState<Place | null>(null);
   const [notice, setNotice] = useState<'unshared' | null>(null);
   const [lastSynced, setLastSynced] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [updated, setUpdated] = useState(false);
   const [attempt, setAttempt] = useState(0);
 
   const session = useRef<CloudSession | null>(null);
@@ -86,6 +93,7 @@ export function useCloudSync({ connect, storage, data, replace, delay = SYNC_DEL
   const again = useRef(false);
   const answer = useRef<'cloud' | 'local' | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const updatedTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const firstData = useRef(true);
   /** The household plan that disappeared mid-sync: find where the plan lives now, then sync again. */
   const regroup = useRef<Place | null>(null);
@@ -133,9 +141,18 @@ export function useCloudSync({ connect, storage, data, replace, delay = SYNC_DEL
       });
   };
 
-  /** One sync at a time. `queue` false drops a request made during a sync instead of running it afterwards. */
+  const showUpdated = () => {
+    setUpdated(true);
+    clearTimeout(updatedTimer.current);
+    updatedTimer.current = setTimeout(() => setUpdated(false), UPDATED_FOR);
+  };
+
+  /**
+   * One sync at a time. `queue` false drops a request made during a sync instead of running it afterwards.
+   * `quiet` is a background look: it only shows as syncing if there's something to send.
+   */
   const sync = useCallback(
-    async (queue = true): Promise<void> => {
+    async (queue = true, quiet = false): Promise<void> => {
       const s = session.current;
       const where = placeRef.current;
       if (!s || !signedInRef.current) return;
@@ -151,7 +168,7 @@ export function useCloudSync({ connect, storage, data, replace, delay = SYNC_DEL
       running.current = true;
       clearTimeout(timer.current);
       timer.current = undefined;
-      show('syncing');
+      if (!quiet) show('syncing');
       try {
         for (let tries = 1; ; tries++) {
           const meta = metaFor(where);
@@ -184,7 +201,9 @@ export function useCloudSync({ connect, storage, data, replace, delay = SYNC_DEL
           if (plan === 'adopt' && remote && remoteData) {
             writeMeta(storage, { tag: remote.tag, syncedHash: hashData(remoteData), editedAt: 0, place: meta.place });
             replace(remoteData);
+            if (hashData(remoteData) !== localHash) showUpdated();
           } else if (plan === 'push') {
+            show('syncing');
             try {
               const saved = await s.save(where, JSON.stringify(local), remote?.tag ?? null);
               writeMeta(storage, { tag: saved.tag, syncedHash: localHash, editedAt: meta.editedAt, place: meta.place });
@@ -294,18 +313,23 @@ export function useCloudSync({ connect, storage, data, replace, delay = SYNC_DEL
   useEffect(() => {
     if (!connect) return;
     const onVisibility = () => {
-      if (document.visibilityState !== 'hidden') void sync(false);
+      if (document.visibilityState !== 'hidden') void sync(false, true);
       else if (timer.current !== undefined) void sync();
     };
-    const onFocus = () => void sync(false);
+    const onFocus = () => void sync(false, true);
+    const poll = setInterval(() => {
+      if (document.visibilityState !== 'hidden') void sync(false, true);
+    }, pollEvery);
     document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('focus', onFocus);
     return () => {
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('focus', onFocus);
+      clearInterval(poll);
       clearTimeout(timer.current);
+      clearTimeout(updatedTimer.current);
     };
-  }, [connect, sync]);
+  }, [connect, sync, pollEvery]);
 
   const signedInSession = (): CloudSession => {
     if (!session.current || !signedInRef.current) throw new CloudError('auth', 'Sign in to iCloud first.');
@@ -328,6 +352,7 @@ export function useCloudSync({ connect, storage, data, replace, delay = SYNC_DEL
       place,
       lastSynced,
       error,
+      updated,
       syncNow: () => {
         if (signedInRef.current) void sync();
         else setAttempt((n) => n + 1);
@@ -368,6 +393,6 @@ export function useCloudSync({ connect, storage, data, replace, delay = SYNC_DEL
         switchPlans();
       },
     }),
-    [status, signedIn, place, notice, lastSynced, error, sync],
+    [status, signedIn, place, notice, lastSynced, error, updated, sync],
   );
 }

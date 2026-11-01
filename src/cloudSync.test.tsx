@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/preact';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/preact';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { App } from './app';
 import { today } from './lib/clock';
@@ -287,6 +287,78 @@ describe('iCloud sync', () => {
 });
 
 const sharing = () => screen.getByRole('group', { name: 'Household sharing' });
+
+describe('keeping up with other devices', () => {
+  const renderToday = (cloud: ReturnType<typeof fakeCloud>, pollEvery = 5) => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(fresh()));
+    history.replaceState(null, '', '#/today');
+    return render(<App cloud={cloud.connect} syncDelay={0} pollEvery={pollEvery} />);
+  };
+  const started = (cloud: ReturnType<typeof fakeCloud>) =>
+    waitFor(() => expect(cloud.session.fetch).toHaveBeenCalled());
+
+  it('picks up another device’s change while open, and says so', async () => {
+    const cloud = fakeCloud({ signedIn: true });
+    cloud.saveElsewhere(fresh());
+    renderToday(cloud);
+    await started(cloud);
+    cloud.saveElsewhere(withAlex());
+    await waitFor(() => expect(stored().people.map((p) => p.name)).toEqual(['Me', 'Alex']));
+    await waitFor(() => expect(screen.getByRole('status').textContent).toBe('Updated from iCloud'));
+  });
+
+  it('checks without flashing Syncing', async () => {
+    const cloud = fakeCloud({ signedIn: true });
+    cloud.saveElsewhere(fresh());
+    renderSettings(cloud, fresh());
+    await synced();
+    cleanup();
+    history.replaceState(null, '', '#/settings');
+    render(<App cloud={cloud.connect} syncDelay={0} pollEvery={5} />);
+    await synced();
+    cloud.session.fetch.mockImplementation(() => new Promise(() => undefined));
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(screen.getByRole('status').textContent).toMatch(/^Synced with iCloud/);
+  });
+
+  it('stops checking while the page is hidden', async () => {
+    const hidden = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+    const cloud = fakeCloud({ signedIn: true });
+    cloud.saveElsewhere(fresh());
+    renderToday(cloud);
+    await started(cloud);
+    const calls = cloud.session.fetch.mock.calls.length;
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(cloud.session.fetch.mock.calls.length).toBe(calls);
+    hidden.mockRestore();
+  });
+
+  it('says nothing on other screens while all is well', async () => {
+    const cloud = fakeCloud({ signedIn: true });
+    cloud.saveElsewhere(fresh());
+    renderToday(cloud, 100000);
+    await started(cloud);
+    await waitFor(() => expect(screen.queryByRole('status')).toBeNull());
+  });
+
+  it('links to Settings from any screen when a sync fails', async () => {
+    const cloud = fakeCloud({ signedIn: true });
+    cloud.session.fetch.mockRejectedValue(new CloudError('other', 'No connection'));
+    renderToday(cloud, 100000);
+    const link = await screen.findByRole('link', { name: 'Not synced' });
+    expect(link.getAttribute('href')).toBe('#/settings');
+  });
+
+  it('syncs on demand from Settings', async () => {
+    const cloud = fakeCloud({ signedIn: true });
+    cloud.saveElsewhere(fresh());
+    renderSettings(cloud, fresh());
+    await synced();
+    cloud.saveElsewhere(withAlex());
+    fireEvent.click(screen.getByRole('button', { name: 'Sync now' }));
+    await waitFor(() => expect(stored().people.map((p) => p.name)).toEqual(['Me', 'Alex']));
+  });
+});
 
 describe('household sharing', () => {
   const clipboard = (writeText: ((text: string) => Promise<void>) | null) =>

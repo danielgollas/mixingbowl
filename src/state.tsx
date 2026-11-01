@@ -60,19 +60,20 @@ interface ProviderProps {
   cloud?: CloudConnector | null;
   /** How long after a change to push it, in ms. */
   syncDelay?: number;
+  pollEvery?: number;
 }
 
 const config = cloudConfig();
 const DEFAULT_CLOUD = config ? cloudKitConnector(config) : null;
 
-export function AppStateProvider({ children, storage, cloud, syncDelay }: ProviderProps) {
+export function AppStateProvider({ children, storage, cloud, syncDelay, pollEvery }: ProviderProps) {
   const [store] = useState(() => (storage === undefined ? browserStorage() : storage));
   const [connect] = useState(() => (cloud === undefined ? DEFAULT_CLOUD : cloud));
   const [today, setToday] = useState(() => currentDate());
   const [data, setData] = useState(() => load(store, currentDate()));
   const [persistent, setPersistent] = useState(store !== null);
   const lastSaveOk = useRef(false);
-  const sync = useCloudSync({ connect, storage: store, data, replace: setData, delay: syncDelay });
+  const sync = useCloudSync({ connect, storage: store, data, replace: setData, delay: syncDelay, pollEvery });
 
   // Layout effects run right after the render instead of after the next frame, so a change is saved even if
   // the tab closes immediately. Runs on the first render too, so a first launch saves its default start date.

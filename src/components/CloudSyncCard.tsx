@@ -29,12 +29,17 @@ export function CloudSyncCard() {
       )}
 
       {(status === 'syncing' || status === 'synced') && (
-        <p role="status">
-          {status === 'syncing' ? 'Syncing…' : 'Synced with iCloud'}
-          {status === 'synced' && lastSynced !== null && (
-            <span class="meta">{` · ${timeFormat.format(lastSynced)}`}</span>
-          )}
-        </p>
+        <>
+          <p role="status">
+            {status === 'syncing' ? 'Syncing…' : 'Synced with iCloud'}
+            {status === 'synced' && lastSynced !== null && (
+              <span class="meta">{` · ${timeFormat.format(lastSynced)}`}</span>
+            )}
+          </p>
+          <button type="button" class="button-secondary" disabled={status === 'syncing'} onClick={sync.syncNow}>
+            Sync now
+          </button>
+        </>
       )}
 
       {status === 'ask' && (

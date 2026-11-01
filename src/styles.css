@@ -123,6 +123,21 @@ h1:focus:not(:focus-visible) {
   margin-top: 0.5rem;
 }
 
+.sync-note {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  padding: 6px 16px;
+  background: var(--accent-soft);
+  color: var(--text);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.sync-note.problem {
+  background: var(--warning-soft);
+}
+
 .disclaimer {
   margin-top: 2rem;
   font-size: 0.78rem;
@@ -977,6 +992,7 @@ a.prompt {
     font-size: 11pt;
   }
 
+  .sync-note,
   .tabbar,
   .no-print {
     display: none !important;

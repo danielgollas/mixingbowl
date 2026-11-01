@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'preact/hooks';
+import { SyncNote } from './components/SyncNote';
 import { TabBar } from './components/TabBar';
 import type { StorageLike } from './lib/storage';
 import type { CloudConnector } from './lib/sync';
@@ -19,11 +20,12 @@ interface AppProps {
   storage?: StorageLike | null;
   cloud?: CloudConnector | null;
   syncDelay?: number;
+  pollEvery?: number;
 }
 
-export function App({ storage, cloud, syncDelay }: AppProps) {
+export function App({ storage, cloud, syncDelay, pollEvery }: AppProps) {
   return (
-    <AppStateProvider storage={storage} cloud={cloud} syncDelay={syncDelay}>
+    <AppStateProvider storage={storage} cloud={cloud} syncDelay={syncDelay} pollEvery={pollEvery}>
       <Shell />
     </AppStateProvider>
   );
@@ -50,6 +52,7 @@ function Shell() {
 
   return (
     <div class="app">
+      {route.name !== 'settings' && <SyncNote />}
       <main class="content">
         <View route={route} />
       </main>
