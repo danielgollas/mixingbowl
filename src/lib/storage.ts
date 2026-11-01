@@ -1,5 +1,6 @@
 import { DEFAULT_MEALS, SLOT_KIND, getPreset, isValidMeal } from '../data/meals';
 import { SLOTS, type Meal, type MenuEntry, type Slot, type WeekMenu } from '../data/types';
+import { isValidBody, type Body } from './maintenance';
 import { findMeal, type CustomMeals, type Menus } from './menu';
 import { isIsoDate } from './program';
 import type { WeightUnit } from './targets';
@@ -27,6 +28,8 @@ export interface Person {
   scale: boolean;
   /** Maintenance calories (kcal/day) for the deficit; null until set. */
   maintenance: number | null;
+  /** The answers behind the last maintenance estimate; missing until calculated. */
+  body?: Body;
 }
 
 export const MAX_PEOPLE = 8;
@@ -108,6 +111,7 @@ function parsePerson(value: unknown, index: number): Person | null {
     meals: meals.length > 0 ? meals : [...DEFAULT_MEALS],
     scale: value.scale !== false,
     maintenance: isValidMaintenance(value.maintenance) ? value.maintenance : null,
+    ...(isValidBody(value.body) && { body: value.body }),
   };
 }
 

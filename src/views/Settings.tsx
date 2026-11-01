@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 import { CloudSyncCard } from '../components/CloudSyncCard';
+import { MaintenanceCalculator } from '../components/MaintenanceCalculator';
 import { SLOT_KIND, SLOT_LABELS } from '../data/meals';
 import { SLOTS, type Slot } from '../data/types';
 import { formatNumber } from '../lib/format';
@@ -118,6 +119,7 @@ function PersonEditor({ person, index }: { person: Person; index: number }) {
   const [weightError, setWeightError] = useState<string | null>(null);
   const [maintenanceDraft, setMaintenanceDraft] = useState(person.maintenance?.toString() ?? '');
   const [maintenanceError, setMaintenanceError] = useState<string | null>(null);
+  const [calculating, setCalculating] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const id = `person-${index}`;
   const range = WEIGHT_RANGE[unit];
@@ -244,7 +246,25 @@ function PersonEditor({ person, index }: { person: Person; index: number }) {
             {maintenanceError}
           </p>
         )}
-        <p class="meta">What this person burns in a day. Use a TDEE calculator; the Menu shows the deficit.</p>
+        <p class="meta">What this person burns in a day. The Menu shows the deficit.</p>
+        {calculating ? (
+          <MaintenanceCalculator
+            id={id}
+            body={person.body}
+            unit={unit}
+            onClose={() => setCalculating(false)}
+            onUse={(body, maintenance) => {
+              updatePerson(person.id, { body, maintenance });
+              setMaintenanceDraft(maintenance.toString());
+              setMaintenanceError(null);
+              setCalculating(false);
+            }}
+          />
+        ) : (
+          <button type="button" class="button-secondary" onClick={() => setCalculating(true)}>
+            Calculate
+          </button>
+        )}
       </div>
 
       <fieldset class="field meal-choices">
