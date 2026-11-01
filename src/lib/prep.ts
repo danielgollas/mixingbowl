@@ -6,11 +6,11 @@ import {
   type ComponentId,
   type FoodCategory,
   type FoodId,
+  type Pack,
   type Portion,
   type Role,
   type Slot,
   type WeekMenu,
-  Pack,
 } from '../data/types';
 import { formatDecimal, formatNumber, formatQuantity, formatWeight } from './format';
 import { resolveMenu, plannedMeals, type CustomMeals, type Menus } from './menu';
