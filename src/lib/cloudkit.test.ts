@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
-import { RECORD_NAME, RECORD_TYPE, cloudConfig, cloudKitConnector, type CloudKitGlobal } from './cloudkit';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { RECORD_NAME, RECORD_TYPE, browserTokenStore, cloudConfig, cloudKitConnector, type CloudKitGlobal } from './cloudkit';
 import { CloudError, type Place } from './sync';
 
 const config = { container: 'iCloud.test', apiToken: 'token', environment: 'production' as const };
@@ -38,7 +38,35 @@ describe('cloudConfig', () => {
   });
 });
 
+describe('browserTokenStore', () => {
+  const key = 'iCloud.test';
+  const longToken = 'x'.repeat(6000);
+
+  afterEach(() => {
+    localStorage.clear();
+    document.cookie = `${key}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=`;
+  });
+
+  it('keeps a session too long for a cookie', () => {
+    browserTokenStore.putToken(key, longToken);
+    expect(browserTokenStore.getToken(key)).toBe(longToken);
+  });
+
+  it('still finds a session CloudKit saved in a cookie', () => {
+    document.cookie = `${key}=old-session; path=`;
+    expect(browserTokenStore.getToken(key)).toBe('old-session');
+  });
+
+  it('forgets both on sign-out', () => {
+    document.cookie = `${key}=old-session; path=`;
+    browserTokenStore.putToken(key, 'new-session');
+    browserTokenStore.putToken(key, null);
+    expect(browserTokenStore.getToken(key)).toBeNull();
+  });
+});
+
 describe('cloudKitConnector', () => {
+
   it('configures the container once with Apple’s buttons', async () => {
     const { CloudKit } = fakeCloudKit({}, true);
     const connect = cloudKitConnector(config, async () => CloudKit);
@@ -46,6 +74,7 @@ describe('cloudKitConnector', () => {
     expect(await connect()).toBe(session);
     expect(CloudKit.configure).toHaveBeenCalledTimes(1);
     expect(CloudKit.configure).toHaveBeenCalledWith({
+      services: { authTokenStore: browserTokenStore },
       containers: [
         expect.objectContaining({
           containerIdentifier: 'iCloud.test',

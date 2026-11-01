@@ -166,6 +166,25 @@ function toRemote(record: CKRecord | undefined): RemoteRecord | null {
   return { json, savedAt: record.modified?.timestamp ?? 0, tag: record.recordChangeTag };
 }
 
+const readCookie = (name: string): string | null =>
+  document.cookie
+    .split('; ')
+    .find((cookie) => cookie.startsWith(`${name}=`))
+    ?.slice(name.length + 1) ?? null;
+
+/**
+ * Keeps the sign-in session in localStorage. CloudKit's default is a cookie, and Chrome refuses cookies over
+ * 4 KB, which leaves a successful sign-in looking signed out. Sessions it saved before this are still read.
+ */
+export const browserTokenStore = {
+  getToken: (key: string): string | null => localStorage.getItem(`mixingbowl:session:${key}`) ?? readCookie(key),
+  putToken(key: string, token: string | null): void {
+    if (token === null) localStorage.removeItem(`mixingbowl:session:${key}`);
+    else localStorage.setItem(`mixingbowl:session:${key}`, token);
+    document.cookie = `${key}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=`;
+  },
+};
+
 /** Connects to CloudKit once; later calls share the session. A failed connection is retried on the next call. */
 export function cloudKitConnector(config: CloudConfig, load: () => Promise<CloudKitGlobal> = loadCloudKit): CloudConnector {
   let session: Promise<CloudSession> | null = null;
@@ -173,6 +192,7 @@ export function cloudKitConnector(config: CloudConfig, load: () => Promise<Cloud
     session ??= load()
       .then((CloudKit) => {
         CloudKit.configure({
+          services: { authTokenStore: browserTokenStore },
           containers: [
             {
               containerIdentifier: config.container,
