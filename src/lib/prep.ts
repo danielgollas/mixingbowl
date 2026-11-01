@@ -10,12 +10,13 @@ import {
   type Role,
   type Slot,
   type WeekMenu,
+  Pack,
 } from '../data/types';
 import { formatDecimal, formatNumber, formatQuantity, formatWeight } from './format';
 import { resolveMenu, plannedMeals, type CustomMeals, type Menus } from './menu';
 import { scaleDay, type ScaledDay } from './scaling';
 import type { AppData, Person } from './storage';
-import { calorieRange, proteinTarget, type Range } from './targets';
+import { calorieRange, proteinTarget, type Range, type WeightUnit } from './targets';
 
 export interface PlanInput {
   meals: readonly Slot[];
@@ -125,7 +126,7 @@ export interface PrepGroup {
 }
 
 /** One line per component you actually make (combo beds fold into the beds they're built from). */
-export function prepList(totals: WeekTotals, people: PersonTotals[] = []): PrepGroup[] {
+export function prepList(totals: WeekTotals, people: PersonTotals[] = [], unit: WeightUnit = 'lb'): PrepGroup[] {
   const sharesFor = (id: ComponentId, portion: Portion): string | null =>
     people.length < 2
       ? null
@@ -151,7 +152,9 @@ export function prepList(totals: WeekTotals, people: PersonTotals[] = []): PrepG
           const uses = (ingredient.grams * servings) / pack.grams;
           const what = name.toLowerCase();
           const count = `${formatDecimal(uses)} ${uses <= 1 ? pack.unit : pack.units}`;
-          details.push(what.includes(pack.unit) ? `uses ${count}` : `uses ${count} ${what}`);
+          const size = packSize(pack, unit);
+          const used = what.includes(pack.unit) ? `uses ${count}` : `uses ${count} ${what}`;
+          details.push(size ? `${used} (${size})` : used);
         }
         return {
           id: component.id,
@@ -167,6 +170,17 @@ export function prepList(totals: WeekTotals, people: PersonTotals[] = []): PrepG
 /** Up to 5% over a whole pack still counts as that many packs (3.02 blocks → buy 3). */
 export const packsToBuy = (uses: number): number => Math.max(1, Math.ceil(uses - 0.05));
 
+const GRAMS_PER_OZ = 28.35;
+
+/** Sold in a set size, unlike produce, which is counted by the piece. */
+const PACKAGED = ['block', 'pack', 'bag'];
+
+/** What one pack weighs, in the app's units; null for produce. */
+function packSize(pack: Pack, unit: WeightUnit): string | null {
+  if (!PACKAGED.includes(pack.unit)) return null;
+  return unit === 'lb' ? `${Math.round(pack.grams / GRAMS_PER_OZ)} oz each` : `${pack.grams} g each`;
+}
+
 const WEIGHED: FoodCategory[] = ['Proteins', 'Produce', 'Grains & Noodles', 'Nuts & Seeds'];
 
 export interface ShoppingLine {
@@ -181,7 +195,7 @@ export interface ShoppingGroup {
   lines: ShoppingLine[];
 }
 
-export function shoppingList(totals: WeekTotals): ShoppingGroup[] {
+export function shoppingList(totals: WeekTotals, unit: WeightUnit = 'lb'): ShoppingGroup[] {
   return FOOD_CATEGORIES.filter((category) => category !== 'Basics')
     .map((category) => ({
       category,
@@ -196,7 +210,8 @@ export function shoppingList(totals: WeekTotals): ShoppingGroup[] {
             const uses = grams / food.pack.grams;
             const buy = packsToBuy(uses);
             line.amount = `${buy} ${buy === 1 ? food.pack.unit : food.pack.units}`;
-            line.note = `uses ${formatDecimal(uses)}`;
+            const size = packSize(food.pack, unit);
+            line.note = size ? `uses ${formatDecimal(uses)} · ${size}` : `uses ${formatDecimal(uses)}`;
           } else if (food.cookedPerDry) {
             line.amount = `≈ ${formatWeight(grams / food.cookedPerDry)} dry`;
           } else if (WEIGHED.includes(food.category)) {

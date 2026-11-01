@@ -5,7 +5,7 @@ import { useAppState } from '../state';
 export function Shopping({ week: routeWeek }: { week: number | null }) {
   const { data, toggleShopping, clearShopping } = useAppState();
   const week = useWeek(routeWeek);
-  const groups = shoppingList(householdTotals(data, week).totals);
+  const groups = shoppingList(householdTotals(data, week).totals, data.settings.unit);
   const checkedIds = data.checks[week]?.shopping ?? [];
   const lines = groups.flatMap((g) => g.lines);
   const checked = lines.filter((line) => checkedIds.includes(line.id)).length;

@@ -30,8 +30,8 @@ export function PrintWeek({ week: routeWeek }: { week: number | null }) {
   const menu = resolveMenu(data.menus, week);
   const slots = householdMeals(data.people);
   const { totals, people } = householdTotals(data, week);
-  const groups = prepList(totals, people);
-  const shopping = shoppingList(totals);
+  const groups = prepList(totals, people, data.settings.unit);
+  const shopping = shoppingList(totals, data.settings.unit);
 
   return (
     <div class="print-page">

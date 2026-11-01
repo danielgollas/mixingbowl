@@ -7,7 +7,7 @@ export function Prep({ week: routeWeek }: { week: number | null }) {
   const { data, togglePrep } = useAppState();
   const week = useWeek(routeWeek);
   const { totals, people } = householdTotals(data, week);
-  const groups = prepList(totals, people);
+  const groups = prepList(totals, people, data.settings.unit);
   const checked = data.checks[week]?.prep ?? [];
   const lines = groups.flatMap((g) => g.lines);
   const done = lines.filter((line) => checked.includes(line.id)).length;

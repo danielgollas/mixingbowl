@@ -57,7 +57,7 @@ describe('prepList', () => {
     expect(line(groups, 'brown-rice')).toMatchObject({ amount: '7 cups cooked', details: ['≈ 2⅓ cups dry'] });
     expect(line(groups, 'tofu-scramble')).toMatchObject({
       amount: '1,050 g tofu',
-      details: ['uses 2.6 blocks extra-firm tofu'],
+      details: ['uses 2.6 blocks extra-firm tofu (14 oz each)'],
     });
   });
 
@@ -69,12 +69,27 @@ describe('prepList', () => {
   });
 });
 
+describe('pack sizes', () => {
+  const totals = weekTotals([unscaled(PRESETS['scramble-bowl'])]);
+
+  it('shows grams in metric', () => {
+    const tofu = shoppingList(totals, 'kg').flatMap((g) => g.lines).find((l) => l.id === 'tofu-firm');
+    expect(tofu?.note).toContain('397 g each');
+    expect(line(prepList(totals, [], 'kg'), 'tofu-scramble')?.details[0]).toContain('(397 g each)');
+  });
+
+  it('leaves out produce counted by the piece', () => {
+    const onions = shoppingList(weekTotals([unscaled(PRESETS['crumble-taco-bowl'])])).flatMap((g) => g.lines).find((l) => l.id === 'onion');
+    expect(onions?.note).not.toContain('each');
+  });
+});
+
 describe('shoppingList', () => {
   const groups = shoppingList(weekTotals(Array.from({ length: 7 }, () => unscaled(PRESETS['scramble-bowl']))));
   const item = (id: string) => groups.flatMap((g) => g.lines).find((l) => l.id === id);
 
   it('rounds packaged foods up to whole packs', () => {
-    expect(item('tofu-firm')).toMatchObject({ amount: '3 blocks', note: 'uses 2.6' });
+    expect(item('tofu-firm')).toMatchObject({ amount: '3 blocks', note: 'uses 2.6 · 14 oz each' });
   });
 
   it('shows beds as dry weight and weighs other produce', () => {
