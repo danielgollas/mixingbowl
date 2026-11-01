@@ -20,6 +20,7 @@ export function Today() {
     .reduce((sum, m) => addNutrition(sum, m.nutrition), ZERO);
   const target = proteinTarget(person.targetWeight, settings.unit);
   const kcal = calorieRange(person);
+  const fasting = position.day === person.fastDay;
 
   return (
     <>
@@ -62,7 +63,11 @@ export function Today() {
         </a>
       )}
 
-      <TotalsBar eaten={eaten} planned={plan.total} kcal={kcal} target={target} />
+      {fasting ? (
+        <p class="card fast-day">Fast day. No meals planned today.</p>
+      ) : (
+        <TotalsBar eaten={eaten} planned={plan.total} kcal={kcal} target={target} />
+      )}
 
       {!person.scale && (
         <p class="meta">{`Portions aren't scaled for ${data.people.length > 1 ? person.name : 'you'}. Turn scaling on in Settings.`}</p>
@@ -78,31 +83,33 @@ export function Today() {
         <p class="notice">{`Still ${formatKcal(plan.shortBy.kcal)} under ${formatNumber(kcal.min)} kcal, even with bigger portions.`}</p>
       )}
 
-      <section class="meals" aria-label="Meals">
-        {person.meals.map((slot) => {
-          const scaled = plan.meals.find((m) => m.slot === slot);
-          if (!scaled) {
+      {!fasting && (
+        <section class="meals" aria-label="Meals">
+          {person.meals.map((slot) => {
+            const scaled = plan.meals.find((m) => m.slot === slot);
+            if (!scaled) {
+              return (
+                <article key={slot} class="card meal-empty">
+                  <p class="eyebrow">{SLOT_LABELS[slot]}</p>
+                  <p>
+                    {`Nothing planned for ${SLOT_LABELS[slot].toLowerCase()} today. `}
+                    <a href={hrefFor({ name: 'menu', week: position.week })}>Plan it on the menu</a>
+                  </p>
+                </article>
+              );
+            }
             return (
-              <article key={slot} class="card meal-empty">
-                <p class="eyebrow">{SLOT_LABELS[slot]}</p>
-                <p>
-                  {`Nothing planned for ${SLOT_LABELS[slot].toLowerCase()} today. `}
-                  <a href={hrefFor({ name: 'menu', week: position.week })}>Plan it on the menu</a>
-                </p>
-              </article>
+              <MealCard
+                key={slot}
+                scaled={scaled}
+                eaten={eatenSlots.includes(slot)}
+                disabled={!position.started}
+                onToggle={() => toggleEaten(person.id, today, slot)}
+              />
             );
-          }
-          return (
-            <MealCard
-              key={slot}
-              scaled={scaled}
-              eaten={eatenSlots.includes(slot)}
-              disabled={!position.started}
-              onToggle={() => toggleEaten(person.id, today, slot)}
-            />
-          );
-        })}
-      </section>
+          })}
+        </section>
+      )}
 
       {plan.meals.some((m) => Object.values(m.servings).some((s) => s !== 1)) && (
         <p class="meta">Portions marked × are scaled up to reach your daily targets.</p>

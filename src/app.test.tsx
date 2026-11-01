@@ -698,3 +698,27 @@ describe('what a bowl is made of', () => {
     expect(screen.getByRole('table').textContent).toContain('Tofu scramble');
   });
 });
+
+describe('a weekly fast', () => {
+  it('shows a fast day on Today with no meals', () => {
+    renderApp('#/today', { fastDay: 1 });
+    expect(screen.getByText(/^Fast day\./)).toBeTruthy();
+    expect(screen.queryByRole('region', { name: 'Meals' })).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Daily totals' })).toBeNull();
+  });
+
+  it('is chosen per person in Settings, by program day and weekday', () => {
+    renderApp('#/settings');
+    const select = screen.getByLabelText('Weekly fast') as HTMLSelectElement;
+    expect(select.options[3].textContent).toBe('Day 3 · Wednesday');
+    fireEvent.change(select, { target: { value: '3' } });
+    expect(stored().people[0].fastDay).toBe(3);
+    fireEvent.change(select, { target: { value: '' } });
+    expect(stored().people[0].fastDay).toBeUndefined();
+  });
+
+  it('notes the fast on the Menu', () => {
+    renderApp('#/menu', { fastDay: 3 });
+    expect(screen.getByRole('region', { name: 'Daily averages' }).textContent).toContain('Fasts on day 3');
+  });
+});

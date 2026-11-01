@@ -17,6 +17,9 @@ function toLocalDate(iso: string): Date {
 export const formatLongDate = (iso: string): string =>
   toLocalDate(iso).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
+/** "Monday" */
+export const formatWeekday = (iso: string): string => toLocalDate(iso).toLocaleDateString('en-US', { weekday: 'long' });
+
 /** "Mon, Sep 14" */
 export const formatShortDate = (iso: string): string =>
   toLocalDate(iso).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });

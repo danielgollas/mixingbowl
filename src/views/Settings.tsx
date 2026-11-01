@@ -3,8 +3,8 @@ import { CloudSyncCard } from '../components/CloudSyncCard';
 import { MaintenanceCalculator } from '../components/MaintenanceCalculator';
 import { SLOT_KIND, SLOT_LABELS } from '../data/meals';
 import { SLOTS, type Slot } from '../data/types';
-import { formatNumber } from '../lib/format';
-import { isIsoDate } from '../lib/program';
+import { formatNumber, formatWeekday } from '../lib/format';
+import { isIsoDate, weekDays } from '../lib/program';
 import { MAINTENANCE_RANGE, MAX_PEOPLE, isValidDeficit, isValidMaintenance, type Person } from '../lib/storage';
 import {
   DEFAULT_DEFICIT,
@@ -295,6 +295,26 @@ function PersonEditor({ person, index }: { person: Person; index: number }) {
             ? 'Add maintenance calories to set a daily target.'
             : `Daily target: ${formatNumber(calorieRange(person).min)} kcal`}
         </p>
+      </div>
+
+      <div class="field">
+        <label for={`${id}-fast`}>Weekly fast</label>
+        <select
+          id={`${id}-fast`}
+          value={person.fastDay ?? ''}
+          onChange={(e) => {
+            const day = e.currentTarget.value;
+            updatePerson(person.id, { fastDay: day === '' ? undefined : Number(day) });
+          }}
+        >
+          <option value="">No fast</option>
+          {weekDays(data.settings.startDate, 1).map((date, index) => (
+            <option key={date} value={index + 1}>
+              {`Day ${index + 1} · ${formatWeekday(date)}`}
+            </option>
+          ))}
+        </select>
+        <p class="meta">A whole day with no meals, every week. Prep and Shopping leave out that person's portions.</p>
       </div>
 
       <fieldset class="field meal-choices">

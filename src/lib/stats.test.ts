@@ -28,6 +28,13 @@ describe('personWeekStats', () => {
     expect(personWeekStats(metric, me, 1).deficit?.weightPerWeek).toBeCloseTo((perDay * 7) / 7700, 5);
   });
 
+  it('counts a fast day as nothing eaten, not as unplanned', () => {
+    const fasting = { ...me, fastDay: 3 };
+    const stats = personWeekStats({ ...data, people: [fasting] }, fasting, 1);
+    expect(stats.unplannedDays).toBe(0);
+    expect(stats.deficit!.perDay).toBeGreaterThan(personWeekStats(data, me, 1).deficit!.perDay);
+  });
+
   it('reports a surplus as a negative deficit, and nothing without maintenance', () => {
     expect(personWeekStats(data, { ...me, maintenance: 1000 }, 1).deficit!.perDay).toBeLessThan(0);
     expect(personWeekStats(data, { ...me, maintenance: null }, 1).deficit).toBeNull();

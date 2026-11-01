@@ -32,9 +32,13 @@ export interface Person {
   body?: Body;
   /** Calories a day below maintenance; the default applies when missing. */
   deficit?: number;
+  /** The day of each program week (1–7) this person fasts; missing for no fast. */
+  fastDay?: number;
 }
 
 export const MAX_PEOPLE = 8;
+
+const isProgramDay = (day: unknown): day is number => Number.isInteger(day) && (day as number) >= 1 && (day as number) <= 7;
 
 export const isValidDeficit = (kcal: unknown): kcal is number =>
   typeof kcal === 'number' && Number.isFinite(kcal) && kcal >= DEFICIT_RANGE.min && kcal <= DEFICIT_RANGE.max;
@@ -118,6 +122,7 @@ function parsePerson(value: unknown, index: number): Person | null {
     maintenance: isValidMaintenance(value.maintenance) ? value.maintenance : null,
     ...(isValidBody(value.body) && { body: value.body }),
     ...(isValidDeficit(value.deficit) && { deficit: value.deficit }),
+    ...(isProgramDay(value.fastDay) && { fastDay: value.fastDay }),
   };
 }
 

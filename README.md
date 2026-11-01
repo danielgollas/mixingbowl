@@ -25,6 +25,8 @@ yuba, soy curls…), as many **veg** as you like, a **sauce** and a **topping**.
   under 1,200 kcal, or 1,500 for men; without maintenance the day aims for 1,200–1,500 kcal. Protein aims for 0.7–1.0 g
   per lb of target weight. A short day grows veg, proteins, beds and snacks together, up to double, and Today says when
   that still isn't enough. Sauces and toppings stay as they are.
+- **Weekly fast**: each person can pick one day of the program week with no meals. Today says so, Prep and Shopping
+  leave out their portions, and the Menu's deficit counts it.
 - **Settings**: start date, weight unit, and the people you cook for, each with their own target weight, meals and
   maintenance calories (for the deficit).
 

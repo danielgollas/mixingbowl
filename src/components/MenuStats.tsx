@@ -57,6 +57,7 @@ export function MenuStats({ week }: { week: number }) {
                 <a href={hrefFor({ name: 'settings' })}>Add maintenance calories in Settings</a> to see the deficit.
               </p>
             )}
+            {person.fastDay !== undefined && <p class="meta">{`Fasts on day ${person.fastDay}.`}</p>}
             {unplannedDays > 0 && (
               <p class="meta">{`${unplannedDays} unplanned ${unplannedDays === 1 ? 'day counts' : 'days count'} as nothing eaten.`}</p>
             )}

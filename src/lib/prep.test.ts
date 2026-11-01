@@ -213,3 +213,31 @@ describe('a second snack', () => {
     expect(parseData(saved, '2026-09-14')!.menus[1].snack2).toEqual([{ mealId: 'banana-berries', days: 7 }]);
   });
 });
+
+describe('a weekly fast', () => {
+  const base = defaultData('2026-09-14');
+  const faster = { ...base.people[0], fastDay: 3 };
+  const other = { ...base.people[0], id: 'other', name: 'Other' };
+  const data = { ...base, people: [faster, other] };
+
+  it('empties that day for that person only', () => {
+    const days = weekPlan(planInput(data, faster), 1);
+    expect(days[2].meals).toEqual([]);
+    expect(days[2].shortBy).toEqual({ kcal: 0, protein: 0 });
+    expect(days[1].meals.length).toBeGreaterThan(0);
+    expect(weekPlan(planInput(data, other), 1)[2].meals.length).toBeGreaterThan(0);
+  });
+
+  it('takes their portions off the shopping and prep totals', () => {
+    const alone = { ...data, people: [{ ...faster, fastDay: undefined }, other] };
+    const count = (d: typeof data) => householdTotals(d, 1).totals.meals;
+    expect(count(alone) - count(data)).toBe(2);
+  });
+
+  it('keeps a valid day and drops a bad one', () => {
+    const load = (fastDay: unknown) =>
+      parseData(JSON.stringify({ ...base, people: [{ ...base.people[0], fastDay }] }), '2026-09-14')!.people[0].fastDay;
+    expect(load(3)).toBe(3);
+    expect(load(8)).toBeUndefined();
+  });
+});

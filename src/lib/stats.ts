@@ -30,7 +30,7 @@ export function personWeekStats(data: AppData, person: Person, week: number): We
   const menu = resolveMenu(data.menus, week);
   let unplannedDays = 0;
   for (let day = 1; day <= 7; day++) {
-    if (person.meals.some((slot) => !entryForDay(menu[slot], day))) unplannedDays++;
+    if (day !== person.fastDay && person.meals.some((slot) => !entryForDay(menu[slot], day))) unplannedDays++;
   }
   const perDay = person.maintenance === null ? null : person.maintenance - average.kcal;
   const perKcal = data.settings.unit === 'kg' ? KCAL_PER_KG : KCAL_PER_LB;

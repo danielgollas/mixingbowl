@@ -24,6 +24,8 @@ export interface PlanInput {
   customMeals: CustomMeals;
   proteinMin: number | null;
   kcal: Range;
+  /** The day of the week this person fasts: no meals. */
+  fastDay?: number;
   /** False keeps every portion at one serving. */
   scale: boolean;
 }
@@ -34,11 +36,13 @@ export const planInput = ({ settings, menus, customMeals }: AppData, person: Per
   customMeals,
   proteinMin: proteinTarget(person.targetWeight, settings.unit)?.min ?? null,
   kcal: calorieRange(person),
+  fastDay: person.fastDay,
   scale: person.scale,
 });
 
 /** One program day's meals, scaled. */
 export function dayPlan(input: PlanInput, week: number, day: number, menu: WeekMenu = resolveMenu(input.menus, week)) {
+  if (day === input.fastDay) return scaleDay([], null, false);
   return scaleDay(plannedMeals(menu, input.meals, day, input.customMeals), input.proteinMin, input.scale, input.kcal);
 }
 
