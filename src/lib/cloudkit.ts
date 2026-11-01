@@ -1,6 +1,7 @@
 import { CloudError, type CloudConnector, type CloudSession, type Place, type RemoteRecord } from './sync';
 
 export const CLOUDKIT_SCRIPT = 'https://cdn.apple-cloudkit.com/ck/2/cloudkit.js';
+const SIGN_IN_ORIGIN = 'https://cdn.apple-cloudkit.com';
 export const SIGN_IN_BUTTON_ID = 'apple-sign-in-button';
 export const SIGN_OUT_BUTTON_ID = 'apple-sign-out-button';
 export const RECORD_TYPE = 'AppData';
@@ -173,8 +174,8 @@ const readCookie = (name: string): string | null =>
     ?.slice(name.length + 1) ?? null;
 
 /**
- * Keeps the sign-in session in localStorage. CloudKit's default is a cookie, and Chrome refuses cookies over
- * 4 KB, which leaves a successful sign-in looking signed out. Sessions it saved before this are still read.
+ * Keeps the sign-in session where the app can write it too (see `takeSessionFromPopup`). CloudKit's default is
+ * a cookie; sessions it saved there before this are still read.
  */
 export const browserTokenStore = {
   getToken: (key: string): string | null => localStorage.getItem(`mixingbowl:session:${key}`) ?? readCookie(key),
@@ -184,6 +185,21 @@ export const browserTokenStore = {
     document.cookie = `${key}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=`;
   },
 };
+
+/**
+ * CloudKit takes the first object posted to the page while its sign-in popup is open to be the popup's answer.
+ * A browser extension can post one first (React DevTools does, twice a second), and the real answer is then
+ * dropped. So listen for Apple's answer here too, and have CloudKit read the session back from the store.
+ */
+function takeSessionFromPopup(container: CKContainer, containerId: string) {
+  window.addEventListener('message', (event) => {
+    if (event.origin !== SIGN_IN_ORIGIN) return;
+    const session = (event.data as { ckSession?: unknown } | null)?.ckSession;
+    if (typeof session !== 'string') return;
+    browserTokenStore.putToken(containerId, session);
+    void container.setUpAuth().catch(() => undefined);
+  });
+}
 
 /** Connects to CloudKit once; later calls share the session. A failed connection is retried on the next call. */
 export function cloudKitConnector(config: CloudConfig, load: () => Promise<CloudKitGlobal> = loadCloudKit): CloudConnector {
@@ -206,7 +222,9 @@ export function cloudKitConnector(config: CloudConfig, load: () => Promise<Cloud
             },
           ],
         });
-        return cloudKitSession(CloudKit.getDefaultContainer());
+        const container = CloudKit.getDefaultContainer();
+        takeSessionFromPopup(container, config.container);
+        return cloudKitSession(container);
       })
       .catch((error: unknown) => {
         session = null;
@@ -294,10 +312,15 @@ function cloudKitSession(container: CKContainer): CloudSession {
         throw new CloudError('other', `Couldn't connect to iCloud. ${e.reason || e.message || ''}`.trim());
       }
     },
-    whenSignedIn: () =>
-      container.whenUserSignsIn().then((identity) => {
-        me = userOf(identity);
-      }),
+    whenSignedIn: function whenSignedIn(): Promise<void> {
+      return container.whenUserSignsIn().then(
+        (identity) => {
+          me = userOf(identity);
+        },
+        // A failed attempt rejects this wait, and the next sign-in resolves a new one.
+        () => whenSignedIn(),
+      );
+    },
     whenSignedOut: () =>
       container.whenUserSignsOut().then(() => {
         me = null;

@@ -91,6 +91,39 @@ describe('cloudKitConnector', () => {
     expect(await session.setUpAuth()).toBe(true);
   });
 
+  describe('with a browser extension posting messages to the page', () => {
+    const fromApple = (data: object, origin = 'https://cdn.apple-cloudkit.com') =>
+      window.dispatchEvent(new MessageEvent('message', { data, origin }));
+
+    afterEach(() => localStorage.clear());
+
+    it('still takes the session from Apple’s popup, and asks CloudKit who signed in', async () => {
+      const { CloudKit, container } = fakeCloudKit({});
+      await cloudKitConnector(config, async () => CloudKit)();
+      container.setUpAuth.mockClear();
+      fromApple({ ckSession: 'session' });
+      expect(browserTokenStore.getToken('iCloud.test')).toBe('session');
+      expect(container.setUpAuth).toHaveBeenCalledTimes(1);
+    });
+
+    it('ignores anything else', async () => {
+      const { CloudKit, container } = fakeCloudKit({});
+      await cloudKitConnector(config, async () => CloudKit)();
+      container.setUpAuth.mockClear();
+      fromApple({ source: 'react-devtools-content-script', hello: true }, location.origin);
+      fromApple({ ckSession: 'forged' }, 'https://example.com');
+      expect(browserTokenStore.getToken('iCloud.test')).toBeNull();
+      expect(container.setUpAuth).not.toHaveBeenCalled();
+    });
+
+    it('keeps waiting for a sign-in after CloudKit gives up on a stray message', async () => {
+      const { CloudKit, container } = fakeCloudKit({});
+      const session = await cloudKitConnector(config, async () => CloudKit)();
+      container.whenUserSignsIn.mockRejectedValueOnce(new Error('neither')).mockResolvedValueOnce({ userRecordName: 'u' });
+      await expect(session.whenSignedIn()).resolves.toBeUndefined();
+    });
+  });
+
   it('explains a failed setup with Apple’s reason', async () => {
     const { CloudKit, container } = fakeCloudKit({});
     container.setUpAuth.mockRejectedValueOnce({ ckErrorCode: 'AUTHENTICATION_FAILED', reason: 'Check the API token.' });
