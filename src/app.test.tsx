@@ -175,7 +175,7 @@ describe('Menu', () => {
       [...(screen.getByLabelText(label) as HTMLSelectElement).options].map((o) => o.textContent).slice(1);
     expect(names('Add to dinner')).toContain('Scramble Bowl');
     expect(names('Add to dinner')).not.toContain('Protein Fluff');
-    expect(names('Add to snack')).toEqual(['Protein Fluff', 'Veggie Batons & Dill Dip', 'Edamame Cup', 'Silken Berry Smoothie', 'Charred Cabbage Chips']);
+    expect(names('Add to snack')).toEqual(['Protein Fluff', 'Veggie Batons & Dill Dip', 'Edamame Cup', 'Silken Berry Smoothie', 'Charred Cabbage Chips', 'Mixed Fruit Cup', 'Apple & Peanut Butter', 'Banana & Berries']);
   });
 
   it('turns a swapped preset into your own bowl and updates Today and Prep', () => {

@@ -59,6 +59,9 @@ export const FOOD_LIST: Food[] = [
   food('garlic', 'Fresh garlic', 149, 6.4, { fat: 0.5, fiber: 2.1, sugar: 1 }, 'Produce'),
   food('lemon-juice', 'Lemons or lemon juice', 22, 0.4, { fat: 0.2, fiber: 0.3, sugar: 2.5 }, 'Produce'),
   food('lime-juice', 'Limes or lime juice', 25, 0.4, { fat: 0.1, fiber: 0.4, sugar: 1.7 }, 'Produce'),
+  food('apple', 'Apples', 52, 0.3, { fat: 0.2, fiber: 2.4, sugar: 10.4 }, 'Produce', { pack: pack(180, 'apple') }),
+  food('banana', 'Bananas', 89, 1.1, { fat: 0.3, fiber: 2.6, sugar: 12.2 }, 'Produce', { pack: pack(120, 'banana') }),
+  food('orange', 'Oranges', 47, 0.9, { fat: 0.1, fiber: 2.4, sugar: 9.4 }, 'Produce', { pack: pack(130, 'orange') }),
   food('frozen-berries', 'Frozen strawberries / blueberries', 45, 0.7, { fat: 0.3, fiber: 2.2, sugar: 6.5 }, 'Produce'),
 
   // ---- Grains & noodles (beds are entered cooked) ----
@@ -70,6 +73,7 @@ export const FOOD_LIST: Food[] = [
   food('shirataki', 'Shirataki / konjac noodles', 10, 0, { fat: 0, fiber: 3, sugar: 0 }, 'Grains & Noodles', { pack: pack(200, 'bag') }),
 
   // ---- Nuts & seeds ----
+  food('peanut-butter', 'Natural peanut butter', 598, 22.5, { fat: 51, fiber: 5.7, sugar: 5.5 }, 'Nuts & Seeds'),
   food('sesame-seeds', 'Sesame seeds', 573, 17.7, { fat: 49.7, fiber: 11.8, sugar: 0.3 }, 'Nuts & Seeds'),
   food('pumpkin-seeds', 'Pumpkin seeds', 559, 30, { fat: 49, fiber: 6, sugar: 1.4 }, 'Nuts & Seeds'),
   food('hemp-hearts', 'Hemp hearts', 553, 31.6, { fat: 48.8, fiber: 4, sugar: 1.5 }, 'Nuts & Seeds'),

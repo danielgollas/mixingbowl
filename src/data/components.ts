@@ -808,6 +808,35 @@ export const COMPONENT_LIST: Component[] = [
       'Bake at 400°F (200°C) or air fry until the edges are deeply caramelized and crispy.',
     ],
   }),
+  snack({
+    id: 'fruit-cup',
+    name: 'Mixed fruit cup',
+    portion: SERVING,
+    ingredients: [
+      ing('apple', 90, '½ apple'),
+      ing('orange', 130, '1 orange'),
+      ing('frozen-berries', 70, '½ cup strawberries or blueberries, thawed'),
+      ing('lemon-juice', 5, 'Squeeze of lemon'),
+    ],
+    methods: ['no-cook'],
+    steps: ['Chop the apple, segment the orange and toss with the berries and lemon. Keeps 2 days.'],
+  }),
+  snack({
+    id: 'apple-peanut-butter',
+    name: 'Apple & peanut butter',
+    portion: SERVING,
+    ingredients: [ing('apple', 180, '1 apple'), ing('peanut-butter', 16, '1 tbsp natural peanut butter')],
+    methods: ['no-cook'],
+    steps: ['Slice the apple just before eating and dip in the peanut butter.'],
+  }),
+  snack({
+    id: 'banana-berries',
+    name: 'Banana & berries',
+    portion: SERVING,
+    ingredients: [ing('banana', 120, '1 banana'), ing('frozen-berries', 70, '½ cup strawberries or blueberries, thawed')],
+    methods: ['no-cook'],
+    steps: ['Slice the banana and top with the berries.'],
+  }),
 ];
 
 export const COMPONENTS: Record<ComponentId, Component> = Object.fromEntries(COMPONENT_LIST.map((c) => [c.id, c]));

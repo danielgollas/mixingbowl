@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { COMPONENT_LIST, COMPONENTS, getComponent } from './components';
 import { FOOD_LIST, FOODS } from './foods';
-import { DEFAULT_MEALS, DEFAULT_MENU, PRESET_MEALS, SLOT_KIND, getPreset, isValidMeal } from './meals';
+import { DEFAULT_MEALS, DEFAULT_MENU, PRESET_MEALS, PRESETS, SLOT_KIND, getPreset, isValidMeal } from './meals';
 import { SLOTS, type Meal } from './types';
 
 const duplicates = (ids: string[]) => ids.filter((id, i) => ids.indexOf(id) !== i);
@@ -115,9 +115,17 @@ describe('foods and components', () => {
 });
 
 describe('meals', () => {
-  it('has ten valid preset bowls and five valid snacks', () => {
+  it('offers fruit snacks made of whole fruit', () => {
+    for (const id of ['fruit-cup', 'apple-peanut-butter', 'banana-berries']) {
+      expect(PRESETS[id]?.kind, id).toBe('snack');
+      const fruit = COMPONENTS[id].ingredients.filter((i) => FOODS[i.foodId].category === 'Produce');
+      expect(fruit.length, id).toBeGreaterThan(0);
+    }
+  });
+
+  it('has ten valid preset bowls and eight valid snacks', () => {
     expect(PRESET_MEALS.filter((m) => m.kind === 'bowl')).toHaveLength(10);
-    expect(PRESET_MEALS.filter((m) => m.kind === 'snack')).toHaveLength(5);
+    expect(PRESET_MEALS.filter((m) => m.kind === 'snack')).toHaveLength(8);
     for (const meal of PRESET_MEALS) expect(isValidMeal(meal), meal.id).toBe(true);
   });
 

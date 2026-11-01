@@ -34,6 +34,9 @@ export const PRESET_MEALS: Meal[] = [
   snack('edamame-cup', 'Edamame Cup', 'edamame-cup'),
   snack('berry-smoothie', 'Silken Berry Smoothie', 'berry-smoothie'),
   snack('cabbage-chips', 'Charred Cabbage Chips', 'cabbage-chips'),
+  snack('fruit-cup', 'Mixed Fruit Cup', 'fruit-cup'),
+  snack('apple-peanut-butter', 'Apple & Peanut Butter', 'apple-peanut-butter'),
+  snack('banana-berries', 'Banana & Berries', 'banana-berries'),
 ];
 
 export const PRESETS: Record<string, Meal> = Object.fromEntries(PRESET_MEALS.map((m) => [m.id, m]));
