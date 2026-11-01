@@ -3,7 +3,7 @@ import { SLOTS, type Meal, type MenuEntry, type Slot, type WeekMenu } from '../d
 import { isValidBody, type Body } from './maintenance';
 import { findMeal, type CustomMeals, type Menus } from './menu';
 import { isIsoDate } from './program';
-import type { WeightUnit } from './targets';
+import { DEFICIT_RANGE, type WeightUnit } from './targets';
 
 /** The key still says v1 so existing data is found; the stored `version` field says how to read it. */
 export const STORAGE_KEY = 'mixingbowl:v1';
@@ -30,9 +30,14 @@ export interface Person {
   maintenance: number | null;
   /** The answers behind the last maintenance estimate; missing until calculated. */
   body?: Body;
+  /** Calories a day below maintenance; the default applies when missing. */
+  deficit?: number;
 }
 
 export const MAX_PEOPLE = 8;
+
+export const isValidDeficit = (kcal: unknown): kcal is number =>
+  typeof kcal === 'number' && Number.isFinite(kcal) && kcal >= DEFICIT_RANGE.min && kcal <= DEFICIT_RANGE.max;
 export const MAINTENANCE_RANGE = { min: 1000, max: 5000 } as const;
 
 export const isValidMaintenance = (kcal: unknown): kcal is number =>
@@ -112,6 +117,7 @@ function parsePerson(value: unknown, index: number): Person | null {
     scale: value.scale !== false,
     maintenance: isValidMaintenance(value.maintenance) ? value.maintenance : null,
     ...(isValidBody(value.body) && { body: value.body }),
+    ...(isValidDeficit(value.deficit) && { deficit: value.deficit }),
   };
 }
 

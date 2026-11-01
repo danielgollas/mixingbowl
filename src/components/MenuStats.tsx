@@ -13,20 +13,26 @@ export function MenuStats({ week }: { week: number }) {
     <section class="card menu-stats" aria-labelledby="menu-stats-title">
       <h2 id="menu-stats-title">Daily averages</h2>
       {data.people.map((person) => {
-        const { average, target, deficit, unplannedDays } = personWeekStats(data, person, week);
+        const { average, target, kcal, deficit, unplannedDays } = personWeekStats(data, person, week);
         return (
           <div key={person.id} class="person-stats">
             {several && <h3>{person.name}</h3>}
             <dl class="stats-grid">
               <div>
                 <dt>Calories</dt>
-                <dd>{`${formatNumber(average.kcal)} kcal`}</dd>
+                <dd>
+                  {`${formatNumber(average.kcal)} kcal`}
+                  <span class="meta">{` of ${formatNumber(kcal.min)}–${formatNumber(kcal.max)}`}</span>
+                </dd>
               </div>
               <div>
                 <dt>Protein</dt>
                 <dd>
                   {`${formatNumber(average.protein)} g`}
                   {target && <span class="meta">{` of ${formatNumber(target.min)}–${formatNumber(target.max)} g`}</span>}
+                  {average.kcal > 0 && (
+                    <span class="meta">{` · ${formatNumber((average.protein * 4 * 100) / average.kcal)}% of calories`}</span>
+                  )}
                 </dd>
               </div>
               <div>

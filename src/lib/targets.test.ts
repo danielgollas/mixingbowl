@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { convertWeight, isValidWeight, proteinTarget } from './targets';
+import type { Body } from './maintenance';
+import { newPerson, type Person } from './storage';
+import { convertWeight, isValidWeight, proteinTarget, KCAL_MAX, KCAL_MIN, calorieRange } from './targets';
 
 describe('weights', () => {
   it('converts between units, rounded to one decimal', () => {
@@ -38,13 +40,39 @@ describe('proteinTarget', () => {
     expect(proteinTarget(null, 'lb')).toBeNull();
   });
 
-  it('is 0.8–1.0 g per lb of target weight', () => {
-    expect(proteinTarget(160, 'lb')).toEqual({ min: 128, max: 160 });
+  it('is 0.7–1.0 g per lb of target weight', () => {
+    expect(proteinTarget(160, 'lb')).toEqual({ min: 112, max: 160 });
   });
 
   it('converts kg to lb first', () => {
     const t = proteinTarget(72.5, 'kg');
-    expect(t?.min).toBeCloseTo(72.5 * 2.20462 * 0.8, 5);
+    expect(t?.min).toBeCloseTo(72.5 * 2.20462 * 0.7, 5);
     expect(t?.max).toBeCloseTo(72.5 * 2.20462, 5);
+  });
+});
+
+describe('calorieRange', () => {
+  const person = (extra: Partial<Person>): Person => ({ ...newPerson('a', 'A'), ...extra });
+  const body: Body = { weightKg: 80, heightCm: 180, age: 35, sex: 'male', activity: 'moderate' };
+
+  it('uses the fixed range until maintenance is known', () => {
+    expect(calorieRange(person({}))).toEqual({ min: KCAL_MIN, max: KCAL_MAX });
+  });
+
+  it('takes the default 500 kcal deficit from maintenance', () => {
+    expect(calorieRange(person({ maintenance: 2700 }))).toEqual({ min: 2200, max: 2350 });
+  });
+
+  it('uses the person’s own deficit', () => {
+    expect(calorieRange(person({ maintenance: 2700, deficit: 250 }))?.min).toBe(2450);
+  });
+
+  it('stops at the floor: 1,200 kcal, or 1,500 for men', () => {
+    expect(calorieRange(person({ maintenance: 1600 }))?.min).toBe(1200);
+    expect(calorieRange(person({ maintenance: 1900, body }))?.min).toBe(1500);
+  });
+
+  it('never targets more than maintenance', () => {
+    expect(calorieRange(person({ maintenance: 1300, body }))?.min).toBe(1300);
   });
 });

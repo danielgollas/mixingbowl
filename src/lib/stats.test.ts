@@ -15,7 +15,7 @@ describe('personWeekStats', () => {
     expect(stats.average.kcal).toBeCloseTo(kcal, 5);
     expect(stats.average.fiber).toBeCloseTo(days.reduce((sum, d) => sum + d.total.fiber, 0) / 7, 5);
     expect(stats.unplannedDays).toBe(0);
-    expect(stats.target).toEqual({ min: 128, max: 160 });
+    expect(stats.target).toEqual({ min: 112, max: 160 });
   });
 
   it('works out the deficit per day and week, and the weight it is worth', () => {

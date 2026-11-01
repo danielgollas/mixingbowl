@@ -45,6 +45,11 @@ describe('saved answers', () => {
     expect(load({ body }).body).toEqual(body);
   });
 
+  it('keeps a valid deficit and drops a bad one', () => {
+    expect(load({ deficit: 300 }).deficit).toBe(300);
+    expect(load({ deficit: 9000 }).deficit).toBeUndefined();
+  });
+
   it('drops bad or missing answers', () => {
     expect(load({ body: { ...body, age: -1 } }).body).toBeUndefined();
     expect(load({}).body).toBeUndefined();

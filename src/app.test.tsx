@@ -78,7 +78,7 @@ describe('Today', () => {
   it('scales portions up to the targets and marks them', () => {
     renderApp('#/today');
     const scramble = screen.getByRole('link', { name: 'Tofu scramble' }).parentElement!;
-    expect(scramble.textContent).toContain('450 g tofu ×3');
+    expect(scramble.textContent).toContain('300 g tofu ×2');
     screen.getByText(/scaled up to reach your daily targets/);
   });
 
@@ -88,7 +88,7 @@ describe('Today', () => {
     fireEvent.click(toggle);
     expect(toggle.getAttribute('aria-pressed')).toBe('true');
     expect(stored().eaten).toEqual({ me: { [TODAY]: ['snack'] } });
-    expect(screen.getByRole('region', { name: 'Daily totals' }).textContent).toContain('156 kcal eaten');
+    expect(screen.getByRole('region', { name: 'Daily totals' }).textContent).toContain('235 kcal eaten');
   });
 
   it('follows the meals you eat and the menu', () => {
@@ -388,7 +388,7 @@ describe('Settings', () => {
     fireEvent.input(input, { target: { value: '160' } });
     expect(screen.queryByText('Enter a weight between 80 and 600 lb.')).toBeNull();
     expect(stored().people[0].targetWeight).toBe(160);
-    screen.getByText('128–160 g protein per day');
+    screen.getByText('112–160 g protein per day');
   });
 
   it('converts the weight when switching units', () => {
@@ -440,7 +440,7 @@ describe('menu stats', () => {
   it('shows each person’s daily averages against their targets, and updates as the menu changes', () => {
     renderApp('#/menu', { targetWeight: 160 });
     expect(stats().textContent).toMatch(/kcal/);
-    expect(stats().textContent).toContain('of 128–160 g');
+    expect(stats().textContent).toContain('of 112–160 g');
     expect(stats().textContent).toMatch(/Fat.*Fiber.*Sugars/);
     expect(stats().textContent).toContain('Add maintenance calories in Settings to see the deficit.');
     const before = stats().textContent;

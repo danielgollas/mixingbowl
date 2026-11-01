@@ -21,6 +21,10 @@ yuba, soy curls…), as many **veg** as you like, a **sauce** and a **topping**.
   extra-firm tofu", with each person's share. **Print** turns the week into a cookbook: menu, batch recipes and
   shopping list.
 - **Shopping**: the week's shopping list, rounded up to whole packs.
+- **Portions**: each person's daily calories are their maintenance less their deficit (500 kcal by default), never
+  under 1,200 kcal, or 1,500 for men; without maintenance the day aims for 1,200–1,500 kcal. Protein aims for 0.7–1.0 g
+  per lb of target weight. A short day grows veg, proteins, beds and snacks together, up to double, and Today says when
+  that still isn't enough. Sauces and toppings stay as they are.
 - **Settings**: start date, weight unit, and the people you cook for, each with their own target weight, meals and
   maintenance calories (for the deficit).
 

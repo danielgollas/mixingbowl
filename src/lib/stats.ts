@@ -3,7 +3,7 @@ import { entryForDay, resolveMenu } from './menu';
 import { ZERO, addNutrition, scaleNutrition } from './nutrition';
 import { planInput, weekPlan } from './prep';
 import type { AppData, Person } from './storage';
-import { proteinTarget, type Range } from './targets';
+import { calorieRange, proteinTarget, type Range } from './targets';
 
 export const KCAL_PER_LB = 3500;
 export const KCAL_PER_KG = 7700;
@@ -14,6 +14,8 @@ export interface WeekStats {
   /** Days missing at least one of the person's meals. */
   unplannedDays: number;
   target: Range | null;
+  /** The day's calorie target. */
+  kcal: Range;
   /** Maintenance minus planned kcal; negative is a surplus. Null without maintenance calories. */
   deficit: { perDay: number; perWeek: number; weightPerWeek: number } | null;
 }
@@ -36,6 +38,7 @@ export function personWeekStats(data: AppData, person: Person, week: number): We
     average,
     unplannedDays,
     target: proteinTarget(person.targetWeight, data.settings.unit),
+    kcal: calorieRange(person),
     deficit: perDay === null ? null : { perDay, perWeek: perDay * 7, weightPerWeek: (perDay * 7) / perKcal },
   };
 }

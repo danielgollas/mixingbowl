@@ -5,11 +5,14 @@ import { SLOT_KIND, SLOT_LABELS } from '../data/meals';
 import { SLOTS, type Slot } from '../data/types';
 import { formatNumber } from '../lib/format';
 import { isIsoDate } from '../lib/program';
-import { MAINTENANCE_RANGE, MAX_PEOPLE, isValidMaintenance, type Person } from '../lib/storage';
+import { MAINTENANCE_RANGE, MAX_PEOPLE, isValidDeficit, isValidMaintenance, type Person } from '../lib/storage';
 import {
+  DEFAULT_DEFICIT,
+  DEFICIT_RANGE,
   KCAL_MAX,
   KCAL_MIN,
   WEIGHT_RANGE,
+  calorieRange,
   convertWeight,
   isValidWeight,
   proteinTarget,
@@ -104,7 +107,7 @@ export function Settings() {
       <section class="card" aria-labelledby="about-title">
         <h2 id="about-title">About the numbers</h2>
         <p class="meta">
-          {`Daily calorie range: ${formatNumber(KCAL_MIN)}–${formatNumber(KCAL_MAX)} kcal. Bowl proteins grow first, then beds, in half portions until the day reaches the person's targets, without going over ${formatNumber(KCAL_MAX)} kcal. Calories and protein are estimated from approximate USDA values and will differ from your product labels. A new day starts at 4am, so late-night eating counts toward the evening before. ${sync.status === 'off' ? 'Everything you save stays in this browser.' : 'Everything you save stays in this browser, and in your own iCloud when you sign in.'}`}
+          {`Each person's daily calories are their maintenance less their deficit, and never under 1,200 kcal (1,500 for men). Without maintenance calories the day aims for ${formatNumber(KCAL_MIN)}–${formatNumber(KCAL_MAX)} kcal. Veg, proteins, beds and snacks grow together in half portions, up to double, until the day reaches the person's targets. Sauces and toppings stay as they are. Calories and protein are estimated from approximate USDA values and will differ from your product labels. A new day starts at 4am, so late-night eating counts toward the evening before. ${sync.status === 'off' ? 'Everything you save stays in this browser.' : 'Everything you save stays in this browser, and in your own iCloud when you sign in.'}`}
         </p>
       </section>
     </>
@@ -119,6 +122,7 @@ function PersonEditor({ person, index }: { person: Person; index: number }) {
   const [weightError, setWeightError] = useState<string | null>(null);
   const [maintenanceDraft, setMaintenanceDraft] = useState(person.maintenance?.toString() ?? '');
   const [maintenanceError, setMaintenanceError] = useState<string | null>(null);
+  const [deficitDraft, setDeficitDraft] = useState((person.deficit ?? DEFAULT_DEFICIT).toString());
   const [calculating, setCalculating] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const id = `person-${index}`;
@@ -219,7 +223,7 @@ function PersonEditor({ person, index }: { person: Person; index: number }) {
         <p class="meta">
           {target
             ? `${formatNumber(target.min)}–${formatNumber(target.max)} g protein per day`
-            : 'The brief targets 0.8–1.0 g of protein per pound of target body weight.'}
+            : 'Aim for 0.7–1.0 g of protein per pound of target body weight.'}
         </p>
       </div>
 
@@ -265,6 +269,32 @@ function PersonEditor({ person, index }: { person: Person; index: number }) {
             Calculate
           </button>
         )}
+      </div>
+
+      <div class="field">
+        <label for={`${id}-deficit`}>Daily deficit</label>
+        <div class="input-row">
+          <input
+            id={`${id}-deficit`}
+            type="number"
+            inputMode="numeric"
+            step="50"
+            min={DEFICIT_RANGE.min}
+            max={DEFICIT_RANGE.max}
+            value={deficitDraft}
+            onInput={(e) => {
+              const kcal = Number(e.currentTarget.value);
+              setDeficitDraft(e.currentTarget.value);
+              if (e.currentTarget.value.trim() !== '' && isValidDeficit(kcal)) updatePerson(person.id, { deficit: kcal });
+            }}
+          />
+          <span class="unit-suffix">kcal/day</span>
+        </div>
+        <p class="meta">
+          {person.maintenance === null
+            ? 'Add maintenance calories to set a daily target.'
+            : `Daily target: ${formatNumber(calorieRange(person).min)} kcal`}
+        </p>
       </div>
 
       <fieldset class="field meal-choices">

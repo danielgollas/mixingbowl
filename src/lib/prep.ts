@@ -15,13 +15,14 @@ import { formatDecimal, formatNumber, formatQuantity, formatWeight } from './for
 import { resolveMenu, plannedMeals, type CustomMeals, type Menus } from './menu';
 import { scaleDay, type ScaledDay } from './scaling';
 import type { AppData, Person } from './storage';
-import { proteinTarget } from './targets';
+import { calorieRange, proteinTarget, type Range } from './targets';
 
 export interface PlanInput {
   meals: readonly Slot[];
   menus: Menus;
   customMeals: CustomMeals;
   proteinMin: number | null;
+  kcal: Range;
   /** False keeps every portion at one serving. */
   scale: boolean;
 }
@@ -31,12 +32,13 @@ export const planInput = ({ settings, menus, customMeals }: AppData, person: Per
   menus,
   customMeals,
   proteinMin: proteinTarget(person.targetWeight, settings.unit)?.min ?? null,
+  kcal: calorieRange(person),
   scale: person.scale,
 });
 
 /** One program day's meals, scaled. */
 export function dayPlan(input: PlanInput, week: number, day: number, menu: WeekMenu = resolveMenu(input.menus, week)) {
-  return scaleDay(plannedMeals(menu, input.meals, day, input.customMeals), input.proteinMin, input.scale);
+  return scaleDay(plannedMeals(menu, input.meals, day, input.customMeals), input.proteinMin, input.scale, input.kcal);
 }
 
 /** All seven days of a program week, scaled. */

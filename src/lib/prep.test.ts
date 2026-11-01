@@ -10,6 +10,7 @@ const day = (...meals: Meal[]): ScaledDay =>
   scaleDay(
     meals.map((meal) => ({ slot: meal.kind === 'bowl' ? 'dinner' : 'snack', meal })),
     null,
+    false,
   );
 
 /** A day whose parts all stay at one serving: three bowls are well over the kcal floor. */
@@ -103,7 +104,7 @@ describe('shoppingList', () => {
 });
 
 describe('weekPlan', () => {
-  const input: PlanInput = { meals: ['snack', 'dinner'], menus: {}, customMeals: {}, proteinMin: null, scale: true };
+  const input: PlanInput = { meals: ['snack', 'dinner'], menus: {}, customMeals: {}, proteinMin: null, kcal: { min: 1200, max: 1500 }, scale: true };
 
   it('plans seven days from the resolved menu', () => {
     const days = weekPlan(input, 1);
@@ -169,7 +170,7 @@ describe('householdTotals', () => {
   it('adds a share line per component only for more than one person', () => {
     const { totals, people } = householdTotals(data, 1);
     const shared = line(prepList(totals, people), 'protein-fluff');
-    expect(shared?.shares).toBe('Me 4 servings');
+    expect(shared?.shares).toBe('Me 6 servings');
     expect(line(prepList(totals, people), 'tofu-scramble')?.shares).toMatch(/^Me [\d,]+ g tofu · Alex [\d,]+ g tofu$/);
     expect(line(prepList(totals, people.slice(0, 1)), 'tofu-scramble')?.shares).toBeNull();
   });

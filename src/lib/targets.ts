@@ -1,5 +1,14 @@
+import type { Person } from './storage';
+
+/** The day's calories when a person's maintenance isn't known. */
 export const KCAL_MIN = 1200;
 export const KCAL_MAX = 1500;
+/** Lowest daily target: KCAL_MIN, or this for men. */
+export const KCAL_FLOOR_MALE = 1500;
+/** How far past the target a day's portions may grow. */
+const KCAL_MARGIN = 150;
+export const DEFAULT_DEFICIT = 500;
+export const DEFICIT_RANGE = { min: 0, max: 1500 } as const;
 export const LB_PER_KG = 2.20462;
 
 export type WeightUnit = 'lb' | 'kg';
@@ -9,11 +18,19 @@ export interface Range {
   max: number;
 }
 
-/** Brief: 0.8–1.0 g protein per lb of target body weight. */
+/** 0.7–1.0 g protein per lb of target body weight. */
 export function proteinTarget(weight: number | null, unit: WeightUnit): Range | null {
   if (weight === null) return null;
   const lb = unit === 'kg' ? weight * LB_PER_KG : weight;
-  return { min: 0.8 * lb, max: lb };
+  return { min: 0.7 * lb, max: lb };
+}
+
+/** A person's daily calories: maintenance less their deficit, above the floor and never above maintenance. */
+export function calorieRange({ maintenance, deficit = DEFAULT_DEFICIT, body }: Person): Range {
+  if (maintenance === null) return { min: KCAL_MIN, max: KCAL_MAX };
+  const floor = body?.sex === 'male' ? KCAL_FLOOR_MALE : KCAL_MIN;
+  const target = Math.min(maintenance, Math.max(floor, maintenance - deficit));
+  return { min: target, max: target + KCAL_MARGIN };
 }
 
 export const WEIGHT_RANGE: Record<WeightUnit, Range> = {

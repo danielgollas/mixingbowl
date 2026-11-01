@@ -1,24 +1,19 @@
 import type { Nutrition } from '../data/types';
 import { formatNumber } from '../lib/format';
-import { KCAL_MAX, KCAL_MIN, type Range } from '../lib/targets';
+import type { Range } from '../lib/targets';
 
 interface Props {
   eaten: Nutrition;
   planned: Nutrition;
+  kcal: Range;
   /** Protein target range; null until a target weight is set. */
   target: Range | null;
 }
 
-export function TotalsBar({ eaten, planned, target }: Props) {
+export function TotalsBar({ eaten, planned, kcal, target }: Props) {
   return (
     <section class="card totals" aria-label="Daily totals">
-      <Meter
-        label="Calories"
-        unit="kcal"
-        eaten={eaten.kcal}
-        planned={planned.kcal}
-        range={{ min: KCAL_MIN, max: KCAL_MAX }}
-      />
+      <Meter label="Calories" unit="kcal" eaten={eaten.kcal} planned={planned.kcal} range={kcal} />
       <Meter label="Protein" unit="g" eaten={eaten.protein} planned={planned.protein} range={target} />
       <dl class="extras-grid">
         {(

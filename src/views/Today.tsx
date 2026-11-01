@@ -5,7 +5,7 @@ import { formatGrams, formatKcal, formatLongDate, formatNumber } from '../lib/fo
 import { ZERO, addNutrition } from '../lib/nutrition';
 import { dayPlan, planInput } from '../lib/prep';
 import { programPosition } from '../lib/program';
-import { KCAL_MAX, KCAL_MIN, proteinTarget } from '../lib/targets';
+import { calorieRange, proteinTarget } from '../lib/targets';
 import { hrefFor } from '../router';
 import { useAppState } from '../state';
 
@@ -19,6 +19,7 @@ export function Today() {
     .filter((m) => eatenSlots.includes(m.slot))
     .reduce((sum, m) => addNutrition(sum, m.nutrition), ZERO);
   const target = proteinTarget(person.targetWeight, settings.unit);
+  const kcal = calorieRange(person);
 
   return (
     <>
@@ -61,20 +62,20 @@ export function Today() {
         </a>
       )}
 
-      <TotalsBar eaten={eaten} planned={plan.total} target={target} />
+      <TotalsBar eaten={eaten} planned={plan.total} kcal={kcal} target={target} />
 
       {!person.scale && (
         <p class="meta">{`Portions aren't scaled for ${data.people.length > 1 ? person.name : 'you'}. Turn scaling on in Settings.`}</p>
       )}
 
       {plan.over >= 0.5 && (
-        <p class="notice">{`These meals add up to ${formatKcal(plan.over)} over ${formatNumber(KCAL_MAX)} kcal. Try fewer meals or lighter picks.`}</p>
+        <p class="notice">{`These meals add up to ${formatKcal(plan.over)} over ${formatNumber(kcal.max)} kcal. Try fewer meals or lighter picks.`}</p>
       )}
       {plan.shortBy.protein >= 0.5 && (
         <p class="notice">{`Still about ${formatGrams(plan.shortBy.protein)} short of your protein target, even with bigger portions. A higher-protein bowl or snack would close it.`}</p>
       )}
       {plan.shortBy.kcal >= 0.5 && (
-        <p class="notice">{`Still ${formatKcal(plan.shortBy.kcal)} under ${formatNumber(KCAL_MIN)} kcal, even with bigger portions.`}</p>
+        <p class="notice">{`Still ${formatKcal(plan.shortBy.kcal)} under ${formatNumber(kcal.min)} kcal, even with bigger portions.`}</p>
       )}
 
       <section class="meals" aria-label="Meals">
