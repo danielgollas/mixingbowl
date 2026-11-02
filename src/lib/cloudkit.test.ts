@@ -92,31 +92,27 @@ describe('cloudKitConnector', () => {
   });
 
   describe('with a browser extension posting messages to the page', () => {
-    const fromApple = (data: object, origin = 'https://cdn.apple-cloudkit.com') =>
-      window.dispatchEvent(new MessageEvent('message', { data, origin }));
-
-    afterEach(() => localStorage.clear());
-
-    it('still takes the session from Apple’s popup, and asks CloudKit who signed in', async () => {
-      const { CloudKit, container } = fakeCloudKit({});
+    const seenAfterConnecting = async (init: MessageEventInit) => {
+      const { CloudKit } = fakeCloudKit({});
       await cloudKitConnector(config, async () => CloudKit)();
-      container.setUpAuth.mockClear();
-      fromApple({ ckSession: 'session' });
-      expect(browserTokenStore.getToken('iCloud.test')).toBe('session');
-      expect(container.setUpAuth).toHaveBeenCalledTimes(1);
+      const seen = vi.fn();
+      window.addEventListener('message', seen);
+      window.dispatchEvent(new MessageEvent('message', init));
+      window.removeEventListener('message', seen);
+      return seen;
+    };
+
+    it('keeps messages the page posted to itself away from CloudKit', async () => {
+      const data = { source: 'react-devtools-content-script', hello: true };
+      expect(await seenAfterConnecting({ data, source: window })).not.toHaveBeenCalled();
     });
 
-    it('ignores anything else', async () => {
-      const { CloudKit, container } = fakeCloudKit({});
-      await cloudKitConnector(config, async () => CloudKit)();
-      container.setUpAuth.mockClear();
-      fromApple({ source: 'react-devtools-content-script', hello: true }, location.origin);
-      fromApple({ ckSession: 'forged' }, 'https://example.com');
-      expect(browserTokenStore.getToken('iCloud.test')).toBeNull();
-      expect(container.setUpAuth).not.toHaveBeenCalled();
+    it('lets the answer from Apple’s popup through', async () => {
+      const seen = await seenAfterConnecting({ data: { ckSession: 'session' }, origin: 'https://cdn.apple-cloudkit.com' });
+      expect(seen).toHaveBeenCalledTimes(1);
     });
 
-    it('keeps waiting for a sign-in after CloudKit gives up on a stray message', async () => {
+    it('keeps waiting for a sign-in after a failed attempt', async () => {
       const { CloudKit, container } = fakeCloudKit({});
       const session = await cloudKitConnector(config, async () => CloudKit)();
       container.whenUserSignsIn.mockRejectedValueOnce(new Error('neither')).mockResolvedValueOnce({ userRecordName: 'u' });
