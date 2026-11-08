@@ -5,10 +5,10 @@ import { ZERO, addNutrition, componentNutrition, mealNutrition, scaleNutrition }
 import { KCAL_MAX, KCAL_MIN, type Range } from './targets';
 
 export const STEP = 0.5;
-/** Extra servings a part may grow by toward the calorie and protein targets. Veg, sauces and toppings don't. */
-export const MAX_EXTRA: Partial<Record<Role, number>> = { protein: 1, bed: 1, snack: 1 };
+/** Extra servings a part may grow by, per role. Sauces and toppings never scale. */
+export const MAX_EXTRA: Partial<Record<Role, number>> = { veg: 1, protein: 1, bed: 1, snack: 1 };
 /** The order a short day grows in, one half serving per role each time round. */
-const ROUND: Role[] = ['protein', 'bed', 'snack'];
+const ROUND: Role[] = ['veg', 'protein', 'bed', 'snack'];
 /** Every bowl has at least this much produce in its vegetable parts, about five servings. */
 export const VEG_MIN_GRAMS = 400;
 
@@ -67,8 +67,8 @@ const density = (n: Nutrition) => (n.kcal > 0 ? n.protein / n.kcal : 0);
 /**
  * With `scale` off, every part stays at one serving.
  *
- * Every bowl first gets `VEG_MIN_GRAMS` of vegetables, whatever the calories. Then the day's other whole foods
- * grow together toward the kcal floor, in half servings: protein, bed and snack each take a turn, evenly within a role, and the protein with the most protein per kcal goes first. Once
+ * Every bowl first gets `VEG_MIN_GRAMS` of vegetables, whatever the calories. Then the day's whole foods grow
+ * together toward the kcal floor, in half servings: veg, protein, bed and snack each take a turn, evenly within a role, and the protein with the most protein per kcal goes first. Once
  * calories are met, only protein grows toward the protein floor. Never past the kcal ceiling.
  */
 export function scaleDay(
@@ -91,7 +91,8 @@ export function scaleDay(
         role,
         step: scaleNutrition(one, STEP),
         steps: 0,
-        maxSteps: max / STEP,
+        // Veg starts at its 400 g servings, and grows on a short day only while that's under double.
+        maxSteps: Math.max(0, 1 + max - (veg[index][part] ?? 1)) / STEP,
       });
     }
   });

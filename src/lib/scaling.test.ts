@@ -38,11 +38,17 @@ describe('scaleDay', () => {
     }
   });
 
+  it('still doubles the vegetables on a short day', () => {
+    const { servings } = scaleDay([dinner('crispy-tofu-bowl')], null, true, { min: 5000, max: 5150 }).meals[0];
+    expect(servings['smashed-cucumber']).toBe(2);
+    expect(servings['crunchy-slaw']).toBe(2);
+  });
+
   it('counts only the produce in a vegetable part', () => {
     expect(vegGrams(PRESETS['chickn-greek-bowl'])).toBe(150 + 60 + 5);
   });
 
-  it('grows protein, bed and snack together in half servings', () => {
+  it('grows veg, protein, bed and snack together in half servings', () => {
     const day = scaleDay([snack('veggie-batons'), dinner('crispy-tofu-bowl')], null, true, { min: 1500, max: 1650 });
     const { servings } = day.meals[1];
     for (const id of ['crispy-tofu', 'brown-rice']) expect(servings[id], id).toBeGreaterThan(1);
