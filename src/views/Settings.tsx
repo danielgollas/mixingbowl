@@ -107,7 +107,7 @@ export function Settings() {
       <section class="card" aria-labelledby="about-title">
         <h2 id="about-title">About the numbers</h2>
         <p class="meta">
-          {`Each person's daily calories are their maintenance less their deficit, and never under 1,200 kcal (1,500 for men). Without maintenance calories the day aims for ${formatNumber(KCAL_MIN)}–${formatNumber(KCAL_MAX)} kcal. Veg, proteins, beds and snacks grow together in half portions, up to double, until the day reaches the person's targets. Sauces and toppings stay as they are. Calories and protein are estimated from approximate USDA values and will differ from your product labels. A new day starts at 4am, so late-night eating counts toward the evening before. ${sync.status === 'off' ? 'Everything you save stays in this browser.' : 'Everything you save stays in this browser, and in your own iCloud when you sign in.'}`}
+          {`Each person's daily calories are their maintenance less their deficit, and never under 1,200 kcal (1,500 for men). Without maintenance calories the day aims for ${formatNumber(KCAL_MIN)}–${formatNumber(KCAL_MAX)} kcal. Every bowl gets at least 400 g of vegetables. Proteins, beds and snacks grow together in half portions, up to double, until the day reaches the person's targets. Sauces and toppings stay as they are. Calories and protein are estimated from approximate USDA values and will differ from your product labels. A new day starts at 4am, so late-night eating counts toward the evening before. ${sync.status === 'off' ? 'Everything you save stays in this browser.' : 'Everything you save stays in this browser, and in your own iCloud when you sign in.'}`}
         </p>
       </section>
     </>

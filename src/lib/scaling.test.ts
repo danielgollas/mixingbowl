@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { getComponent } from '../data/components';
 import { PRESETS } from '../data/meals';
 import type { Meal } from '../data/types';
 import { componentNutrition, mealNutrition } from './nutrition';
-import { scaleDay, type PlannedMeal } from './scaling';
+import { VEG_MIN_GRAMS, scaleDay, vegGrams, type PlannedMeal } from './scaling';
 import { KCAL_MAX, KCAL_MIN } from './targets';
 
 const snack = (id: string): PlannedMeal => ({ slot: 'snack', meal: PRESETS[id] });
@@ -18,24 +19,41 @@ describe('scaleDay', () => {
     expect(day.shortBy).toEqual({ kcal: KCAL_MIN, protein: 0 });
   });
 
-  it('changes nothing when the day already meets both targets', () => {
+  it('changes only the vegetables when the day already meets both targets', () => {
     const planned = [snack('protein-fluff'), dinner('scramble-bowl'), { slot: 'lunch' as const, meal: PRESETS['crispy-tofu-bowl'] }];
     const day = scaleDay(planned, 90);
-    for (const meal of day.meals) expect(Object.values(meal.servings).every((s) => s === 1)).toBe(true);
+    for (const id of ['tofu-scramble', 'crispy-tofu', 'brown-rice']) {
+      const meal = day.meals.find((m) => id in m.servings)!;
+      expect(meal.servings[id], id).toBe(1);
+    }
     expect(day.shortBy).toEqual({ kcal: 0, protein: 0 });
   });
 
-  it('grows veg, protein, bed and snack together in half servings', () => {
+  it('fills every bowl to 400 g of vegetables, evenly, whatever the calories', () => {
+    for (const kcal of [{ min: 1, max: 2 }, { min: 1, max: 5000 }, { min: 5000, max: 5150 }]) {
+      const { servings } = scaleDay([dinner('chickn-greek-bowl')], null, true, kcal).meals[0];
+      expect(vegGrams(PRESETS['chickn-greek-bowl'], servings)).toBeGreaterThanOrEqual(VEG_MIN_GRAMS);
+      expect(vegGrams(PRESETS['chickn-greek-bowl'], servings)).toBeLessThan(VEG_MIN_GRAMS + 100);
+      expect(Math.abs(servings['smashed-cucumber'] - servings['mixed-greens'])).toBeLessThanOrEqual(0.5);
+    }
+  });
+
+  it('counts only the produce in a vegetable part', () => {
+    expect(vegGrams(PRESETS['chickn-greek-bowl'])).toBe(150 + 60 + 5);
+  });
+
+  it('grows protein, bed and snack together in half servings', () => {
     const day = scaleDay([snack('veggie-batons'), dinner('crispy-tofu-bowl')], null, true, { min: 1500, max: 1650 });
     const { servings } = day.meals[1];
-    for (const id of ['smashed-cucumber', 'crispy-tofu', 'brown-rice']) expect(servings[id], id).toBeGreaterThan(1);
+    for (const id of ['crispy-tofu', 'brown-rice']) expect(servings[id], id).toBeGreaterThan(1);
     expect(day.meals[0].servings['veggie-batons']).toBeGreaterThan(1);
     for (const meal of day.meals) for (const s of Object.values(meal.servings)) expect((s * 2) % 1).toBe(0);
   });
 
-  it('stops every part at double, and reports what is still short', () => {
+  it('stops every part but the vegetables at double, and reports what is still short', () => {
     const day = scaleDay([snack('veggie-batons'), dinner('crispy-tofu-bowl')], 400, true, { min: 5000, max: 5150 });
-    expect(Math.max(...day.meals.flatMap((m) => Object.values(m.servings)))).toBe(2);
+    const { 'smashed-cucumber': _, 'crunchy-slaw': __, ...rest } = day.meals[1].servings;
+    expect(Math.max(day.meals[0].servings['veggie-batons'], ...Object.values(rest))).toBe(2);
     expect(day.meals[1].servings['crispy-tofu']).toBe(2);
     expect(day.shortBy.kcal).toBeGreaterThan(0);
     expect(day.shortBy.protein).toBeGreaterThan(0);
@@ -66,9 +84,11 @@ describe('scaleDay', () => {
     expect(day.meals[1].servings.seitan).toBeGreaterThan(1);
   });
 
-  it('never goes over the kcal ceiling, even if that leaves the protein short', () => {
-    const day = scaleDay([snack('cabbage-chips'), dinner('crumble-taco-bowl'), { slot: 'lunch', meal: PRESETS['soy-curl-fajita-bowl'] }], 300);
-    expect(day.total.kcal).toBeLessThanOrEqual(KCAL_MAX);
+  it('grows nothing but vegetables past the kcal ceiling, even if that leaves the protein short', () => {
+    const planned = [snack('cabbage-chips'), dinner('crumble-taco-bowl'), { slot: 'lunch' as const, meal: PRESETS['soy-curl-fajita-bowl'] }];
+    const day = scaleDay(planned, 300);
+    const vegOnly = scaleDay(planned, null, true, { min: 0, max: 0 }).total.kcal;
+    expect(day.total.kcal).toBeLessThanOrEqual(Math.max(KCAL_MAX, vegOnly));
     expect(day.shortBy.protein).toBeGreaterThan(0);
   });
 
@@ -82,7 +102,9 @@ describe('scaleDay', () => {
     const day = scaleDay(planned, null);
     const unscaled = planned.reduce((sum, p) => sum + mealNutrition(p.meal).kcal, 0);
     expect(day.over).toBeCloseTo(unscaled - KCAL_MAX, 5);
-    expect(day.meals.every((m) => Object.values(m.servings).every((s) => s === 1))).toBe(true);
+    for (const meal of day.meals)
+      for (const part of meal.meal.parts.filter((p) => getComponent(p)!.role !== 'veg'))
+        expect(meal.servings[part], part).toBe(1);
   });
 
   it('keeps every portion at one serving when scaling is off, with nothing reported short or over', () => {
